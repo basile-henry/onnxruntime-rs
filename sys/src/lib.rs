@@ -10,15 +10,14 @@ pub fn check_status(api: &OrtApi, status: *mut OrtStatus) -> () {
 
 
     let get_error_message = api.GetErrorMessage.unwrap();
-    let release_status = api.ReleaseStatus.unwrap();
+    // let release_status = api.ReleaseStatus.unwrap();
 
     unsafe {
         if !status.is_null() {
 
             let msg = CStr::from_ptr(get_error_message(status));
-            eprintln!("error: {}", msg.to_string_lossy());
-            release_status(status);
-            exit(1);
+            panic!("error: {}", msg.to_string_lossy());
+            // release_status(status);
         }
     }
 }
@@ -29,7 +28,6 @@ mod tests {
     use std::ffi::CStr;
     use std::ffi::CString;
     use std::io::Result;
-    use std::mem::MaybeUninit;
 
     #[test]
     fn mat_mul() -> Result<()> {
@@ -71,7 +69,7 @@ mod tests {
         let model_path = CString::new("../../onnxruntime/test/testdata/matmul_1.onnx")
             .unwrap();
 
-        let session: *mut OrtSession = {
+        let _session: *mut OrtSession = {
             let create_session = api.CreateSession.unwrap();
             let mut raw_session = std::ptr::null_mut();
             unsafe {
