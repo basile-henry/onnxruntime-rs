@@ -2,22 +2,12 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    let onnxruntime_c_api = cmake::build("../../cmake/");
-
-    println!(
-        "cargo:rustc-link-search=native={}/lib",
-        onnxruntime_c_api.display()
-    );
-    println!("cargo:rustc-link-lib=dylib=onnxruntime");
-
-    let header = format!(
-        "{}/include/onnxruntime/core/session/onnxruntime_c_api.h",
-        onnxruntime_c_api.display()
-    );
+    println!("cargo:rustc-link-lib=onnxruntime");
 
     let bindings = bindgen::Builder::default()
-        .header(header)
+        .header("cbits/ort.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+        .layout_tests(false)
         .generate()
         .expect("Unable to generate bindings");
 
