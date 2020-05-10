@@ -7,6 +7,10 @@ fn main() {
     let bindings = bindgen::Builder::default()
         .header("cbits/ort.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+        // .whitelist_type("OrtApi")
+        .whitelist_function("OrtGetApiBase")
+        .whitelist_var("ORT_.*")
+        .whitelist_recursively(true)
         .layout_tests(false)
         .generate()
         .expect("Unable to generate bindings");
