@@ -27,6 +27,7 @@ mod tests {
     use std::io::Result;
     use std::mem::size_of;
     use std::ptr::null_mut;
+    use std::slice;
 
     #[test]
     fn mat_mul() -> Result<()> {
@@ -77,6 +78,36 @@ mod tests {
             }
         };
 
+        let allocator: *mut OrtAllocator = {
+            let get_allocator_with_default_options = api.GetAllocatorWithDefaultOptions.unwrap();
+            let mut raw_allocator = null_mut();
+            unsafe {
+                let status = get_allocator_with_default_options(&mut raw_allocator);
+                check_status(api, status);
+                raw_allocator
+            }
+        };
+
+        let input_name: &CStr = {
+            let session_get_input_name = api.SessionGetInputName.unwrap();
+            let mut raw_name = null_mut();
+            unsafe {
+                let status = session_get_input_name(session, 0, allocator, &mut raw_name);
+                check_status(api, status);
+                CStr::from_ptr(raw_name)
+            }
+        };
+
+        let output_name: &CStr = {
+            let session_get_output_name = api.SessionGetOutputName.unwrap();
+            let mut raw_name = null_mut();
+            unsafe {
+                let status = session_get_output_name(session, 0, allocator, &mut raw_name);
+                check_status(api, status);
+                CStr::from_ptr(raw_name)
+            }
+        };
+
         let run_options: *mut OrtRunOptions = {
             let create_run_options = api.CreateRunOptions.unwrap();
             let mut raw_run_options = null_mut();
@@ -101,10 +132,10 @@ mod tests {
             }
         };
 
-        let input_names = [CString::new("X").unwrap().as_ptr()].as_ptr();
-        let output_names = [CString::new("Y").unwrap().as_ptr()].as_ptr();
+        let input_names = [input_name.as_ptr()].as_ptr();
+        let output_names = [output_name.as_ptr()].as_ptr();
 
-        let input_data: *mut f64 = [1., 2., 3., 4., 5., 6.].as_mut_ptr();
+        let input_data: *mut f32 = [1., 2., 3., 4., 5., 6.].as_mut_ptr();
         let input_shape: *const i64 = [3, 2].as_ptr();
 
         // 3x2
@@ -115,10 +146,10 @@ mod tests {
                 let status = create_tensor(
                     memory_info,
                     input_data as *mut c_void,
-                    6 * size_of::<f64>() as u64,
+                    6 * size_of::<f32>() as u64, // number of bytes
                     input_shape,
-                    2,
-                    ONNXTensorElementDataType_ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE,
+                    2, // number of values
+                    ONNXTensorElementDataType_ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,
                     &mut raw_input,
                 );
                 check_status(api, status);
@@ -144,6 +175,19 @@ mod tests {
                 raw_output
             }
         };
+
+        let output_data: &[f32] = {
+            let get_tensor_mutable_data = api.GetTensorMutableData.unwrap();
+            let mut raw_output_data = null_mut();
+            unsafe {
+                let status = get_tensor_mutable_data(output, &mut raw_output_data);
+                check_status(api, status);
+
+                slice::from_raw_parts(raw_output_data.cast(), 3)
+            }
+        };
+
+        assert_eq!(output_data, &[1. + 2. * 2., 3. + 2. * 4., 5. + 2. * 6.]);
 
         Ok(())
     }
