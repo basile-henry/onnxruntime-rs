@@ -15,8 +15,6 @@ mod tests {
     use std::slice;
 
     fn check_status(api: &OrtApi, status: *mut OrtStatus) -> () {
-        use std::ffi::CStr;
-
         let get_error_message = api.GetErrorMessage.unwrap();
 
         unsafe {
@@ -42,7 +40,7 @@ mod tests {
             let mut raw_env = null_mut();
             unsafe {
                 let status = create_env(
-                    OrtLoggingLevel_ORT_LOGGING_LEVEL_WARNING,
+                    OrtLoggingLevel::ORT_LOGGING_LEVEL_WARNING,
                     name,
                     &mut raw_env,
                 );
@@ -121,8 +119,8 @@ mod tests {
             let mut raw_memory_info = null_mut();
             unsafe {
                 let status = create_cpu_memory_info(
-                    OrtAllocatorType_OrtArenaAllocator,
-                    OrtMemType_OrtMemTypeCPU,
+                    OrtAllocatorType::OrtArenaAllocator,
+                    OrtMemType::OrtMemTypeCPU,
                     &mut raw_memory_info,
                 );
                 check_status(api, status);
@@ -147,7 +145,7 @@ mod tests {
                     6 * size_of::<f32>() as u64, // number of bytes
                     input_shape,
                     2, // number of values
-                    ONNXTensorElementDataType_ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,
+                    ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,
                     &mut raw_input,
                 );
                 check_status(api, status);

@@ -14,7 +14,7 @@ fn main() {
     match std::env::var("ONNXRUNTIME_INCLUDE_DIR") {
         Ok(path) => {
             clang_args = format!("-I{}", path);
-        },
+        }
         Err(_) => (),
     };
 
@@ -27,6 +27,7 @@ fn main() {
         .whitelist_function("OrtGetApiBase")
         .whitelist_var("ORT_.*")
         .whitelist_recursively(true)
+        .rustified_enum("*")
         .layout_tests(false)
         .generate()
         .expect("Unable to generate bindings");
