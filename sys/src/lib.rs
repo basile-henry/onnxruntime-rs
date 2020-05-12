@@ -5,21 +5,6 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-pub fn check_status(api: &OrtApi, status: *mut OrtStatus) -> () {
-    use std::ffi::CStr;
-
-    let get_error_message = api.GetErrorMessage.unwrap();
-    // let release_status = api.ReleaseStatus.unwrap();
-
-    unsafe {
-        if !status.is_null() {
-            let msg = CStr::from_ptr(get_error_message(status));
-            panic!("error: {}", msg.to_string_lossy());
-            // release_status(status);
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -28,6 +13,19 @@ mod tests {
     use std::mem::size_of;
     use std::ptr::null_mut;
     use std::slice;
+
+    fn check_status(api: &OrtApi, status: *mut OrtStatus) -> () {
+        use std::ffi::CStr;
+
+        let get_error_message = api.GetErrorMessage.unwrap();
+
+        unsafe {
+            if !status.is_null() {
+                let msg = CStr::from_ptr(get_error_message(status));
+                panic!("error: {}", msg.to_string_lossy());
+            }
+        }
+    }
 
     #[test]
     fn mat_mul() -> Result<()> {
