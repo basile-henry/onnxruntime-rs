@@ -56,7 +56,7 @@ mod tests {
             raw_session_options
         };
 
-        let model_path = CString::new("../../onnxruntime/test/testdata/matmul_1.onnx").unwrap();
+        let model_path = CString::new("../onnxruntime/test/testdata/matmul_1.onnx").unwrap();
 
         let session: *mut OrtSession = {
             let create_session = api.CreateSession.unwrap();

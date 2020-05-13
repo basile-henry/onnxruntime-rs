@@ -1,8 +1,9 @@
-use onnxruntime_sys as sys;
 use std::convert::TryFrom;
 use std::ffi;
 use std::os::raw::c_char;
 use std::ptr;
+
+mod sys;
 
 // Re-export enums
 pub use sys::{

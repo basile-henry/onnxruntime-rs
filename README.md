@@ -1,6 +1,6 @@
-# onnxruntime-sys
+# onnxruntime
 
-This crate contains the raw bindings to onnxruntime.
+This crate contains bindings to onnxruntime.
 
 In order to build/use this crate you must either have onnxruntime installed on
 your system or build the onnxruntime project from source.

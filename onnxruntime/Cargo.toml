@@ -1,9 +1,0 @@
-[package]
-name = "onnxruntime"
-version = "0.1.0"
-authors = ["Basile Henry <bjm.henry@gmail.com>"]
-edition = "2018"
-
-[dependencies]
-onnxruntime-sys = { path = "../sys" }
-lazy_static = "1.4"
