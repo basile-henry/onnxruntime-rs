@@ -13,7 +13,7 @@ mod tests {
     use std::ptr::null_mut;
     use std::slice;
 
-    fn check_status(api: &OrtApi, status: *mut OrtStatus) -> () {
+    fn check_status(api: &Api, status: *mut Status) -> () {
         let get_error_message = api.GetErrorMessage.unwrap();
 
         unsafe {
@@ -26,25 +26,25 @@ mod tests {
 
     #[test]
     fn mat_mul() -> Result<()> {
-        let api_base: &OrtApiBase = unsafe { OrtGetApiBase().as_ref().unwrap() };
+        let api_base: &ApiBase = unsafe { GetApiBase().as_ref().unwrap() };
 
-        let api: &OrtApi = {
+        let api: &Api = {
             let get_api = api_base.GetApi.unwrap();
             unsafe { get_api(ORT_API_VERSION).as_ref().unwrap() }
         };
 
-        let env: *mut OrtEnv = {
+        let env: *mut Env = {
             let name = CStr::from_bytes_with_nul(b"test\0").unwrap().as_ptr();
             let create_env = api.CreateEnv.unwrap();
             let mut raw_env = null_mut();
             unsafe {
-                let status = create_env(OrtLoggingLevel::Warning, name, &mut raw_env);
+                let status = create_env(LoggingLevel::Warning, name, &mut raw_env);
                 check_status(api, status);
                 raw_env
             }
         };
 
-        let session_options: *mut OrtSessionOptions = {
+        let session_options: *mut SessionOptions = {
             let create_session_options = api.CreateSessionOptions.unwrap();
             let set_intra_op_num_threads = api.SetIntraOpNumThreads.unwrap();
             let mut raw_session_options = null_mut();
@@ -58,7 +58,7 @@ mod tests {
 
         let model_path = CString::new("../onnxruntime/test/testdata/matmul_1.onnx").unwrap();
 
-        let session: *mut OrtSession = {
+        let session: *mut Session = {
             let create_session = api.CreateSession.unwrap();
             let mut raw_session = null_mut();
             unsafe {
@@ -69,7 +69,7 @@ mod tests {
             }
         };
 
-        let allocator: *mut OrtAllocator = {
+        let allocator: *mut Allocator = {
             let get_allocator_with_default_options = api.GetAllocatorWithDefaultOptions.unwrap();
             let mut raw_allocator = null_mut();
             unsafe {
@@ -99,7 +99,7 @@ mod tests {
             }
         };
 
-        let run_options: *mut OrtRunOptions = {
+        let run_options: *mut RunOptions = {
             let create_run_options = api.CreateRunOptions.unwrap();
             let mut raw_run_options = null_mut();
             unsafe {
@@ -109,13 +109,13 @@ mod tests {
             }
         };
 
-        let memory_info: *mut OrtMemoryInfo = {
+        let memory_info: *mut MemoryInfo = {
             let create_cpu_memory_info = api.CreateCpuMemoryInfo.unwrap();
             let mut raw_memory_info = null_mut();
             unsafe {
                 let status = create_cpu_memory_info(
-                    OrtAllocatorType::ArenaAllocator,
-                    OrtMemType::Cpu,
+                    AllocatorType::ArenaAllocator,
+                    MemType::Cpu,
                     &mut raw_memory_info,
                 );
                 check_status(api, status);
@@ -130,7 +130,7 @@ mod tests {
         let input_shape: *const i64 = [3, 2].as_ptr();
 
         // 3x2
-        let input: *const OrtValue = {
+        let input: *const Value = {
             let create_tensor = api.CreateTensorWithDataAsOrtValue.unwrap();
             let mut raw_input = null_mut();
             unsafe {
@@ -140,7 +140,7 @@ mod tests {
                     6 * size_of::<f32>() as u64, // number of bytes
                     input_shape,
                     2, // number of values
-                    ONNXTensorElementDataType::Float,
+                    OnnxTensorElementDataType::Float,
                     &mut raw_input,
                 );
                 check_status(api, status);
@@ -148,7 +148,7 @@ mod tests {
             }
         };
 
-        let output: *mut OrtValue = {
+        let output: *mut Value = {
             let run = api.Run.unwrap();
             let mut raw_output = null_mut();
             unsafe {

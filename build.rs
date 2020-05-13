@@ -47,6 +47,18 @@ fn main() {
 struct CustomEnums;
 
 impl ParseCallbacks for CustomEnums {
+    fn item_name(&self, name: &str) -> Option<String> {
+        if name.starts_with("Ort") {
+            return Some(name.replace("Ort", ""));
+        }
+
+        if name.starts_with("ONNX") {
+            return Some(name.replace("ONNX", "Onnx"));
+        }
+
+        None
+    }
+
     fn enum_variant_name(
         &self,
         enum_name: Option<&str>,
@@ -66,6 +78,9 @@ impl ParseCallbacks for CustomEnums {
         if variant_name.starts_with("Ort") {
             variant_name = variant_name.replace("Ort", "");
         }
+
+        //Special case BFloat16
+        variant_name = variant_name.replace("Bfloat16", "BFloat16");
 
         Some(variant_name)
     }

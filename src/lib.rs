@@ -7,13 +7,13 @@ mod sys;
 
 // Re-export enums
 pub use sys::{
-    ExecutionMode, GraphOptimizationLevel, ONNXTensorElementDataType, ONNXType, OrtAllocatorType,
-    OrtErrorCode, OrtLoggingLevel, OrtMemType,
+    AllocatorType, ErrorCode, ExecutionMode, GraphOptimizationLevel, LoggingLevel, MemType,
+    OnnxTensorElementDataType, OnnxType,
 };
 
 lazy_static::lazy_static! {
-    static ref API: &'static sys::OrtApi = unsafe {
-        let api_base = sys::OrtGetApiBase().as_ref().unwrap();
+    static ref API: &'static sys::Api = unsafe {
+        let api_base = sys::GetApiBase().as_ref().unwrap();
         let get_api = api_base.GetApi.unwrap();
         get_api(sys::ORT_API_VERSION).as_ref().unwrap()
     };
@@ -21,7 +21,7 @@ lazy_static::lazy_static! {
 
 macro_rules! call {
     ($name:ident, $($arg:expr),*) => {
-        (API.$name.expect(&format!("OrtApi: \"{}\" unavailable", stringify!($name))))($($arg),*)
+        (API.$name.expect(&format!("ORT api: \"{}\" unavailable", stringify!($name))))($($arg),*)
     }
 }
 
@@ -36,9 +36,9 @@ macro_rules! checked_call {
 }
 
 macro_rules! ort_type {
-    ($t:ident, $ot:ident, $r:ident) => {
+    ($t:ident, $r:ident) => {
         pub struct $t {
-            raw: *mut sys::$ot,
+            raw: *mut sys::$t,
         }
 
         impl Drop for $t {
@@ -49,35 +49,23 @@ macro_rules! ort_type {
     };
 }
 
-ort_type!(Session, OrtSession, ReleaseSession);
-ort_type!(SessionOptions, OrtSessionOptions, ReleaseSessionOptions);
-ort_type!(Env, OrtEnv, ReleaseEnv);
-ort_type!(Status, OrtStatus, ReleaseStatus);
-ort_type!(MemoryInfo, OrtMemoryInfo, ReleaseMemoryInfo);
-ort_type!(Value, OrtValue, ReleaseValue);
-ort_type!(RunOptions, OrtRunOptions, ReleaseRunOptions);
-ort_type!(TypeInfo, OrtTypeInfo, ReleaseTypeInfo);
-ort_type!(
-    TensorTypeAndShapeInfo,
-    OrtTensorTypeAndShapeInfo,
-    ReleaseTensorTypeAndShapeInfo
-);
-ort_type!(CustomOpDomain, OrtCustomOpDomain, ReleaseCustomOpDomain);
-ort_type!(MapTypeInfo, OrtMapTypeInfo, ReleaseMapTypeInfo);
-ort_type!(
-    SequenceTypeInfo,
-    OrtSequenceTypeInfo,
-    ReleaseSequenceTypeInfo
-);
-ort_type!(ModelMetadata, OrtModelMetadata, ReleaseModelMetadata);
-ort_type!(
-    ThreadingOptions,
-    OrtThreadingOptions,
-    ReleaseThreadingOptions
-);
+ort_type!(Session, ReleaseSession);
+ort_type!(SessionOptions, ReleaseSessionOptions);
+ort_type!(Env, ReleaseEnv);
+ort_type!(Status, ReleaseStatus);
+ort_type!(MemoryInfo, ReleaseMemoryInfo);
+ort_type!(Value, ReleaseValue);
+ort_type!(RunOptions, ReleaseRunOptions);
+ort_type!(TypeInfo, ReleaseTypeInfo);
+ort_type!(TensorTypeAndShapeInfo, ReleaseTensorTypeAndShapeInfo);
+ort_type!(CustomOpDomain, ReleaseCustomOpDomain);
+ort_type!(MapTypeInfo, ReleaseMapTypeInfo);
+ort_type!(SequenceTypeInfo, ReleaseSequenceTypeInfo);
+ort_type!(ModelMetadata, ReleaseModelMetadata);
+ort_type!(ThreadingOptions, ReleaseThreadingOptions);
 
 pub struct OrtError {
-    pub error_code: OrtErrorCode,
+    pub error_code: ErrorCode,
     pub error_msg: String,
 }
 
@@ -94,8 +82,8 @@ fn to_c_string(s: &str) -> Result<*const c_char> {
         .as_ptr())
 }
 
-impl From<*mut sys::OrtStatus> for Status {
-    fn from(raw: *mut sys::OrtStatus) -> Status {
+impl From<*mut sys::Status> for Status {
+    fn from(raw: *mut sys::Status) -> Status {
         Status { raw }
     }
 }
@@ -123,7 +111,7 @@ impl TryFrom<Status> for OrtError {
 }
 
 impl Env {
-    pub fn new(logging_level: OrtLoggingLevel, log_identifier: &str) -> Result<Self> {
+    pub fn new(logging_level: LoggingLevel, log_identifier: &str) -> Result<Self> {
         let log_identifier = to_c_string(log_identifier)?;
         let mut raw = ptr::null_mut();
         unsafe {
@@ -187,10 +175,10 @@ impl Session {
             .collect::<Result<Vec<_>>>()?;
         let inputs = inputs
             .iter()
-            .map(|v| v.raw as *const sys::OrtValue)
+            .map(|v| v.raw as *const sys::Value)
             .collect::<Vec<_>>();
         let output_size = output_names.len() as u64;
-        let mut raw_outputs: *mut sys::OrtValue = ptr::null_mut();
+        let mut raw_outputs: *mut sys::Value = ptr::null_mut();
         unsafe {
             checked_call!(
                 Run,
