@@ -1,7 +1,6 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
-#![allow(improper_ctypes)] // u128 is not FFI safe
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
@@ -39,11 +38,7 @@ mod tests {
             let create_env = api.CreateEnv.unwrap();
             let mut raw_env = null_mut();
             unsafe {
-                let status = create_env(
-                    OrtLoggingLevel::ORT_LOGGING_LEVEL_WARNING,
-                    name,
-                    &mut raw_env,
-                );
+                let status = create_env(OrtLoggingLevel::Warning, name, &mut raw_env);
                 check_status(api, status);
                 raw_env
             }
@@ -119,8 +114,8 @@ mod tests {
             let mut raw_memory_info = null_mut();
             unsafe {
                 let status = create_cpu_memory_info(
-                    OrtAllocatorType::OrtArenaAllocator,
-                    OrtMemType::OrtMemTypeCPU,
+                    OrtAllocatorType::ArenaAllocator,
+                    OrtMemType::Cpu,
                     &mut raw_memory_info,
                 );
                 check_status(api, status);
@@ -145,7 +140,7 @@ mod tests {
                     6 * size_of::<f32>() as u64, // number of bytes
                     input_shape,
                     2, // number of values
-                    ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,
+                    ONNXTensorElementDataType::Float,
                     &mut raw_input,
                 );
                 check_status(api, status);

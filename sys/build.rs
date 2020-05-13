@@ -1,3 +1,5 @@
+use bindgen::callbacks::{EnumVariantValue, ParseCallbacks};
+use heck::CamelCase;
 use std::env;
 use std::path::PathBuf;
 
@@ -27,7 +29,10 @@ fn main() {
         .whitelist_function("OrtGetApiBase")
         .whitelist_var("ORT_.*")
         .whitelist_recursively(true)
-        .rustified_enum("*")
+        .blacklist_type("__int64_t")
+        .blacklist_type("__uint32_t")
+        .rustified_non_exhaustive_enum("*")
+        .parse_callbacks(Box::new(CustomEnums))
         .layout_tests(false)
         .generate()
         .expect("Unable to generate bindings");
@@ -36,4 +41,32 @@ fn main() {
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
+}
+
+#[derive(Debug)]
+struct CustomEnums;
+
+impl ParseCallbacks for CustomEnums {
+    fn enum_variant_name(
+        &self,
+        enum_name: Option<&str>,
+        variant_name: &str,
+        _variant_value: EnumVariantValue,
+    ) -> Option<String> {
+        let mut variant_name = variant_name.to_camel_case();
+
+        if let Some(enum_name) = enum_name {
+            let enum_name = enum_name.replace("enum ", "").to_camel_case();
+
+            if variant_name.starts_with(&enum_name) {
+                variant_name = variant_name.replace(&enum_name, "");
+            }
+        }
+
+        if variant_name.starts_with("Ort") {
+            variant_name = variant_name.replace("Ort", "");
+        }
+
+        Some(variant_name)
+    }
 }
