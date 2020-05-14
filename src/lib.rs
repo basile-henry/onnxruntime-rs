@@ -1,5 +1,4 @@
 use std::ffi;
-use std::os::raw::c_char;
 use std::ptr;
 
 mod sys;
@@ -74,10 +73,8 @@ pub enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
-fn to_c_string(s: &str) -> Result<*const c_char> {
-    Ok(ffi::CString::new(s)
-        .map_err(|e| Error::NulStringError(e))?
-        .as_ptr())
+fn to_c_string(s: &str) -> Result<ffi::CString> {
+    Ok(ffi::CString::new(s).map_err(|e| Error::NulStringError(e))?)
 }
 
 impl Status {
@@ -107,7 +104,7 @@ impl Env {
         let log_identifier = to_c_string(log_identifier)?;
         let mut raw = ptr::null_mut();
         unsafe {
-            checked_call!(CreateEnv, logging_level, log_identifier, &mut raw)?;
+            checked_call!(CreateEnv, logging_level, log_identifier.as_ptr(), &mut raw)?;
         }
 
         Ok(Env { raw })
@@ -130,7 +127,7 @@ impl SessionOptions {
             checked_call!(
                 SetOptimizedModelFilePath,
                 self.raw,
-                optimized_model_filepath
+                optimized_model_filepath.as_ptr()
             )?;
         }
         Ok(())
@@ -142,7 +139,13 @@ impl Session {
         let model_path = to_c_string(model_path)?;
         let mut raw = ptr::null_mut();
         unsafe {
-            checked_call!(CreateSession, env.raw, model_path, options.raw, &mut raw)?;
+            checked_call!(
+                CreateSession,
+                env.raw,
+                model_path.as_ptr(),
+                options.raw,
+                &mut raw
+            )?;
         }
 
         Ok(Session { raw })
@@ -161,10 +164,12 @@ impl Session {
             .iter()
             .map(|n| to_c_string(n))
             .collect::<Result<Vec<_>>>()?;
+        let input_names_ptrs = input_names.iter().map(|n| n.as_ptr()).collect::<Vec<_>>();
         let output_names = output_names
             .iter()
             .map(|n| to_c_string(n))
             .collect::<Result<Vec<_>>>()?;
+        let output_names_ptrs = output_names.iter().map(|n| n.as_ptr()).collect::<Vec<_>>();
         let inputs = inputs
             .iter()
             .map(|v| v.raw as *const sys::Value)
@@ -176,10 +181,10 @@ impl Session {
                 Run,
                 self.raw,
                 options.raw,
-                input_names.as_ptr(),
+                input_names_ptrs.as_ptr(),
                 inputs.as_ptr(),
                 inputs.len() as u64,
-                output_names.as_ptr(),
+                output_names_ptrs.as_ptr(),
                 output_size,
                 &mut raw_outputs
             )?;
