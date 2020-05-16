@@ -19,7 +19,7 @@ lazy_static::lazy_static! {
 
 macro_rules! call {
     ($name:ident, $($arg:expr),*) => {
-        (API.$name.expect(&format!("ORT api: \"{}\" unavailable", stringify!($name))))($($arg),*)
+        (API.$name.expect(concat!("ORT api: \"", stringify!($name), "\" unavailable", )))($($arg),*)
     }
 }
 
@@ -40,7 +40,7 @@ macro_rules! ort_type {
         }
 
         impl Drop for $t {
-            fn drop(&mut self) -> () {
+            fn drop(&mut self) {
                 unsafe { call!($r, self.raw) }
             }
         }
@@ -59,7 +59,8 @@ ort_type!(CustomOpDomain, ReleaseCustomOpDomain);
 ort_type!(MapTypeInfo, ReleaseMapTypeInfo);
 ort_type!(SequenceTypeInfo, ReleaseSequenceTypeInfo);
 ort_type!(ModelMetadata, ReleaseModelMetadata);
-ort_type!(ThreadingOptions, ReleaseThreadingOptions);
+// only in later versions of ort
+// ort_type!(ThreadingOptions, ReleaseThreadingOptions);
 
 #[derive(Debug)]
 pub struct Status {
@@ -229,34 +230,6 @@ impl SessionOptions {
         }
         Ok(self)
     }
-
-    pub fn add_custom_op_domain(self, custom_op_domain: &mut CustomOpDomain) -> Result<Self> {
-        unsafe {
-            checked_call!(AddCustomOpDomain, self.raw, custom_op_domain.raw)?;
-        }
-        Ok(self)
-    }
-
-    pub fn register_custom_ops_library<F>(
-        self,
-        library_path: &str,
-        library_handle: F,
-    ) -> Result<Self>
-    where
-        F: FnMut() -> () + 'static,
-    {
-        let library_path = CString::new(library_path)?;
-        let library_handle = Box::new(Box::new(library_handle));
-        unsafe {
-            checked_call!(
-                RegisterCustomOpsLibrary,
-                self.raw,
-                library_path.as_ptr(),
-                Box::into_raw(library_handle) as *mut _
-            )?;
-        }
-        Ok(self)
-    }
 }
 
 impl Clone for SessionOptions {
@@ -339,13 +312,13 @@ pub struct Allocator {
     raw: *mut sys::Allocator,
 }
 
-impl Allocator {
-    // TODO: Expose non default constructor?
-    pub fn new() -> Result<Self> {
+impl Default for Allocator {
+    fn default() -> Self {
         let mut raw = ptr::null_mut();
         unsafe {
-            checked_call!(GetAllocatorWithDefaultOptions, &mut raw)?;
+            checked_call!(GetAllocatorWithDefaultOptions, &mut raw)
+                .expect("GetAllocatorWithDefaultOptions");
         }
-        Ok(Allocator { raw })
+        Allocator { raw }
     }
 }
