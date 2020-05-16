@@ -33,6 +33,7 @@ fn main() {
         .blacklist_type("__uint32_t")
         .rustified_non_exhaustive_enum("*")
         .parse_callbacks(Box::new(CustomEnums))
+        .no_copy(".*")
         .layout_tests(false)
         .generate()
         .expect("Unable to generate bindings");
