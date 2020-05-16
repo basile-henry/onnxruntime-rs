@@ -334,3 +334,18 @@ impl Session {
         }
     }
 }
+
+pub struct Allocator {
+    raw: *mut sys::Allocator,
+}
+
+impl Allocator {
+    // TODO: Expose non default constructor?
+    pub fn new() -> Result<Self> {
+        let mut raw = ptr::null_mut();
+        unsafe {
+            checked_call!(GetAllocatorWithDefaultOptions, &mut raw)?;
+        }
+        Ok(Allocator { raw })
+    }
+}
