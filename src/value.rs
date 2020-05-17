@@ -163,13 +163,12 @@ ort_data_type!(Int64, i64);
 ort_data_type!(Bool, bool);
 
 impl<T: OrtType> Tensor<T> {
-    pub fn new(shape: Vec<i64>, mut vec: Vec<T>) -> Result<Tensor<T>> {
+    pub fn new(mem_info: MemoryInfo, shape: Vec<i64>, mut vec: Vec<T>) -> Result<Tensor<T>> {
         let mut raw = ptr::null_mut();
-        let mem_info = ptr::null();
         unsafe {
             checked_call!(
                 CreateTensorWithDataAsOrtValue,
-                mem_info,
+                mem_info.raw,
                 vec.as_mut_ptr() as *mut _,
                 (vec.len() * std::mem::size_of::<T>()) as u64,
                 shape.as_ptr(),

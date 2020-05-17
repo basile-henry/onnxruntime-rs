@@ -326,3 +326,19 @@ impl Default for Allocator {
         Allocator { raw }
     }
 }
+
+impl MemoryInfo {
+    pub fn cpu_memory_info(alloc_type: AllocatorType, mem_type: MemType) -> Result<Self> {
+        let mut raw = ptr::null_mut();
+        unsafe {
+            checked_call!(
+                CreateCpuMemoryInfo,
+                alloc_type,
+                mem_type,
+                &mut raw
+            )?;
+        }
+
+        Ok(MemoryInfo { raw })
+    }
+}
