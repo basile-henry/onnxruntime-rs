@@ -87,12 +87,10 @@ impl TensorTypeAndShapeInfo {
     /// Return the number of elements specified by the tensor shape. Return a negative value if
     /// unknown (i.e., any dimension is negative.)
     ///
-    /// ```
     /// [] -> 1
     /// [1,3,4] -> 12
     /// [2,0,4] -> 0
     /// [-1,3,4] -> -1
-    /// ```
     pub fn elem_count(&self) -> isize {
         let mut count = 0;
         unsafe {
@@ -273,4 +271,3 @@ macro_rules! values {
         }
     };
 }
-
