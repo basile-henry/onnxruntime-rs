@@ -171,7 +171,7 @@ impl<T: OrtType> Tensor<T> {
                 CreateTensorWithDataAsOrtValue,
                 mem_info,
                 vec.as_mut_ptr() as *mut _,
-                vec.len() as u64,
+                (vec.len() * std::mem::size_of::<T>()) as u64,
                 shape.as_ptr(),
                 shape.len() as u64,
                 T::onnx_type(),
