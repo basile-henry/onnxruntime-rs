@@ -322,3 +322,226 @@ impl Default for Allocator {
         Allocator { raw }
     }
 }
+
+impl Value {
+    /// Create a tensor from an allocator.
+    pub fn alloc_tensor(
+        alloc: Allocator,
+        shape: &[i64],
+        data_type: OnnxTensorElementDataType,
+    ) -> Result<Value> {
+        let mut raw = ptr::null_mut();
+        unsafe {
+            checked_call!(
+                CreateTensorAsOrtValue,
+                alloc.raw,
+                shape.as_ptr(),
+                shape.len() as u64,
+                data_type,
+                &mut raw
+            )?;
+        }
+        Ok(Value { raw })
+    }
+
+    pub fn is_tensor(&self) -> bool {
+        let mut out = 0;
+        unsafe {
+            checked_call!(IsTensor, self.raw, &mut out).expect("is_tensor");
+        }
+        out == 1
+    }
+
+    pub fn tensor_data(&self) -> *mut c_void {
+        let mut data = ptr::null_mut();
+        unsafe {
+            checked_call!(GetTensorMutableData, self.raw, &mut data).expect("GetTensorMutableData");
+        }
+        data
+    }
+
+    pub fn shape_and_type(&self) -> TensorTypeAndShapeInfo {
+        let mut raw = ptr::null_mut();
+        unsafe {
+            checked_call!(GetTensorTypeAndShape, self.raw, &mut raw)
+                .expect("TensorTypeAndShapeInfo");
+        }
+        TensorTypeAndShapeInfo { raw }
+    }
+
+    pub fn as_tensor<T: OrtType>(self) -> std::result::Result<Tensor<T>, Self> {
+        let shape_and_type = self.shape_and_type();
+        if !self.is_tensor() || shape_and_type.elem_type() != T::onnx_type() {
+            return Err(self);
+        }
+        Ok(Tensor {
+            owned: None,
+            val: self,
+            shape: shape_and_type.dims(),
+        })
+    }
+}
+
+impl TensorTypeAndShapeInfo {
+    pub fn dims(&self) -> Vec<i64> {
+        let mut num_dims = 0;
+        unsafe {
+            checked_call!(GetDimensionsCount, self.raw, &mut num_dims)
+                .expect("TensorTypeAndShapeInfo");
+        }
+        let mut dims = vec![0; num_dims as usize];
+        unsafe {
+            checked_call!(
+                GetDimensions,
+                self.raw,
+                dims.as_mut_ptr(),
+                dims.len() as u64
+            )
+            .expect("TensorTypeAndShapeInfo");
+        }
+        dims
+    }
+
+    pub unsafe fn set_dims(&mut self, dims: &[i64]) {
+        checked_call!(SetDimensions, self.raw, dims.as_ptr(), dims.len() as u64)
+            .expect("SetDimensions");
+    }
+
+    /// Return the number of elements specified by the tensor shape. Return a negative value if
+    /// unknown (i.e., any dimension is negative.)
+    ///
+    /// ```
+    /// [] -> 1
+    /// [1,3,4] -> 12
+    /// [2,0,4] -> 0
+    /// [-1,3,4] -> -1
+    /// ```
+    pub fn elem_count(&self) -> isize {
+        let mut count = 0;
+        unsafe {
+            checked_call!(GetTensorShapeElementCount, self.raw, &mut count).expect("SetDimensions");
+        }
+        // XXX check this, feels like the c_api signature is wrong, it's size_t even though it can
+        // return negative numbers
+        count as isize
+    }
+
+    pub fn elem_type(&self) -> OnnxTensorElementDataType {
+        let mut info = OnnxTensorElementDataType::Undefined;
+        unsafe {
+            checked_call!(GetTensorElementType, self.raw, &mut info).expect("SetDimensions");
+        }
+        info
+    }
+
+    // no documentation for this?
+    // pub fn symbolic_dims(&mut self) -> impl Iterator<Item=&str> {
+    //     let mut dims = vec![0; num_dims as usize];
+    //     unsafe {
+    //         checked_call!(
+    //             GetSymbolicDimensions,
+    //             self.raw,
+    //             dims.as_ptr(),
+    //             dims.len() as u64
+    //         ).expect("GetSymbolicDimensions");
+    //     }
+    // }
+}
+
+use std::ffi::c_void;
+
+pub struct Tensor<T> {
+    /// If this is none then ort owns the data.
+    owned: Option<Vec<T>>,
+    val: Value,
+    shape: Vec<i64>,
+}
+
+pub trait OrtType: Sized {
+    fn onnx_type() -> OnnxTensorElementDataType;
+}
+
+impl<T: OrtType> Tensor<T> {
+    pub fn new(shape: Vec<i64>, mut vec: Vec<T>) -> Result<Tensor<T>> {
+        let mut raw = ptr::null_mut();
+        let mem_info = ptr::null();
+        unsafe {
+            checked_call!(
+                CreateTensorWithDataAsOrtValue,
+                mem_info,
+                vec.as_mut_ptr() as *mut _,
+                vec.len() as u64,
+                shape.as_ptr(),
+                shape.len() as u64,
+                T::onnx_type(),
+                &mut raw
+            )?;
+        }
+        Ok(Tensor {
+            owned: Some(vec),
+            val: Value { raw },
+            shape,
+        })
+    }
+    pub fn dims(&self) -> &[i64] {
+        &self.shape
+    }
+
+    pub fn value(&self) -> &Value {
+        &self.val
+    }
+
+    pub fn value_mut(&mut self) -> &mut Value {
+        &mut self.val
+    }
+}
+
+impl<T> std::borrow::Borrow<[T]> for Tensor<T> {
+    fn borrow(&self) -> &[T] {
+        &self[..]
+    }
+}
+
+impl<T> std::borrow::BorrowMut<[T]> for Tensor<T> {
+    fn borrow_mut(&mut self) -> &mut [T] {
+        &mut self[..]
+    }
+}
+
+impl<T> std::ops::Deref for Tensor<T> {
+    type Target = [T];
+
+    fn deref(&self) -> &[T] {
+        if let Some(v) = &self.owned {
+            &v
+        } else {
+            let len: i64 = self.shape.iter().cloned().product();
+            // don't return anything when the shape isn't known
+            if len <= 0 {
+                &[]
+            } else {
+                unsafe {
+                    std::slice::from_raw_parts(self.val.tensor_data() as *const _, len as usize)
+                }
+            }
+        }
+    }
+}
+
+impl<T> std::ops::DerefMut for Tensor<T> {
+    fn deref_mut(&mut self) -> &mut [T] {
+        if let Some(v) = &mut self.owned {
+            v
+        } else {
+            let len: i64 = self.shape.iter().cloned().product();
+            // don't return anything when the shape isn't known
+            if len <= 0 {
+                &mut []
+            } else {
+                unsafe {
+                    std::slice::from_raw_parts_mut(self.val.tensor_data() as *mut _, len as usize)
+                }
+            }
+        }
+    }
+}
