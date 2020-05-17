@@ -11,7 +11,7 @@ impl Value {
         unsafe {
             checked_call!(
                 CreateTensorAsOrtValue,
-                alloc.raw,
+                alloc.as_ptr(),
                 shape.as_ptr(),
                 shape.len() as u64,
                 data_type,

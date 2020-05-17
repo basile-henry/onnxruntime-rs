@@ -5,7 +5,8 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
+
     use super::*;
     use std::ffi::{c_void, CStr, CString};
     use std::io::Result;
@@ -33,16 +34,7 @@ mod tests {
             unsafe { get_api(ORT_API_VERSION).as_ref().unwrap() }
         };
 
-        let env: *mut Env = {
-            let name = CStr::from_bytes_with_nul(b"test\0").unwrap().as_ptr();
-            let create_env = api.CreateEnv.unwrap();
-            let mut raw_env = null_mut();
-            unsafe {
-                let status = create_env(LoggingLevel::Warning, name, &mut raw_env);
-                check_status(api, status);
-                raw_env
-            }
-        };
+        let env: *mut Env = crate::tests::TEST_ENV.test_env.raw;
 
         let session_options: *mut SessionOptions = {
             let create_session_options = api.CreateSessionOptions.unwrap();
@@ -179,6 +171,16 @@ mod tests {
         };
 
         assert_eq!(output_data, &[1. + 2. * 2., 3. + 2. * 4., 5. + 2. * 6.]);
+
+        // Cleanup
+        unsafe {
+            (api.ReleaseValue.unwrap())(output);
+            (api.ReleaseMemoryInfo.unwrap())(memory_info);
+            (api.ReleaseRunOptions.unwrap())(run_options);
+            (api.ReleaseSession.unwrap())(session);
+            (api.ReleaseSessionOptions.unwrap())(session_options);
+            (api.ReleaseEnv.unwrap())(env);
+        };
 
         Ok(())
     }

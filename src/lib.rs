@@ -1,40 +1,20 @@
-use std::ffi::c_void;
-use std::ffi::{self, CString};
+use std::ffi::{self, CStr, CString};
 use std::ptr;
 
 mod sys;
-
 // Re-export enums
 pub use sys::{
     AllocatorType, ErrorCode, ExecutionMode, GraphOptimizationLevel, LoggingLevel, MemType,
     OnnxTensorElementDataType, OnnxType,
 };
 
-lazy_static::lazy_static! {
-    static ref API: &'static sys::Api = unsafe {
-        let api_base = sys::GetApiBase().as_ref().unwrap();
-        let get_api = api_base.GetApi.unwrap();
-        get_api(sys::ORT_API_VERSION).as_ref().unwrap()
-    };
-}
+#[macro_use]
+mod api;
 
-macro_rules! call {
-    ($name:ident, $($arg:expr),*) => {
-        (API.$name.expect(concat!("ORT api: \"", stringify!($name), "\" unavailable", )))($($arg),*)
-    }
-}
+mod allocator;
+pub use allocator::Allocator;
 
-macro_rules! checked_call {
-    ($name:ident, $($arg:expr),*) => {{
-        let status = call!($name, $($arg),*);
-        match Status::new(status) {
-            Some(status) => Err(Error::OrtError(status)),
-            None => Ok(()),
-        }
-    }}
-}
-
-// note that this be come after the macro definitions
+// note that this be come after the macro definitions (in api)
 mod value;
 pub use value::Tensor;
 
@@ -95,7 +75,7 @@ impl Status {
             }
 
             let error_code = call!(GetErrorCode, raw);
-            let error_msg = ffi::CStr::from_ptr(call!(GetErrorMessage, raw))
+            let error_msg = CStr::from_ptr(call!(GetErrorMessage, raw))
                 .to_string_lossy()
                 .into_owned();
 
@@ -270,7 +250,7 @@ impl Session {
         let mut raw = ptr::null_mut();
 
         unsafe {
-            checked_call!(SessionGetInputName, self.raw, ix, alloc.raw, &mut raw)?;
+            checked_call!(SessionGetInputName, self.raw, ix, alloc.as_ptr(), &mut raw)?;
         }
 
         Ok(OrtString { raw })
@@ -281,7 +261,7 @@ impl Session {
         let mut raw = ptr::null_mut();
 
         unsafe {
-            checked_call!(SessionGetOutputName, self.raw, ix, alloc.raw, &mut raw)?;
+            checked_call!(SessionGetOutputName, self.raw, ix, alloc.as_ptr(), &mut raw)?;
         }
 
         Ok(OrtString { raw })
@@ -348,28 +328,6 @@ impl Session {
     }
 }
 
-pub struct Allocator {
-    raw: *mut sys::Allocator,
-}
-
-impl Default for Allocator {
-    fn default() -> Self {
-        let mut raw = ptr::null_mut();
-        unsafe {
-            checked_call!(GetAllocatorWithDefaultOptions, &mut raw)
-                .expect("GetAllocatorWithDefaultOptions");
-        }
-        Allocator { raw }
-    }
-}
-
-impl Allocator {
-    pub unsafe fn free(&self, ptr: *mut c_void) {
-        checked_call!(AllocatorFree, self.raw, ptr).expect("AllocatorFree");
-    }
-}
-
-use std::ffi::CStr;
 use std::os::raw::c_char;
 
 /// An ort string with the default allocator
@@ -418,9 +376,25 @@ impl RunOptions {
 mod tests {
     use super::*;
 
+    pub(crate) struct TestEnv {
+        pub(crate) test_env: Env,
+    }
+
+    unsafe impl Send for TestEnv {}
+    unsafe impl Sync for TestEnv {}
+
+    lazy_static::lazy_static! {
+        /// There should only be one ORT environment existing at any given time.
+        /// This test environment is intended to be used by all the tests that
+        /// need an ORT environment instead of each creating their own.
+        pub(crate) static ref TEST_ENV: TestEnv = TestEnv {
+            test_env: Env::new(LoggingLevel::Fatal, "test").unwrap()
+        };
+    }
+
     #[test]
     fn mat_mul() -> Result<()> {
-        let env = Env::new(LoggingLevel::Warning, "test")?;
+        let env = &TEST_ENV.test_env;
 
         let so = SessionOptions::new()?;
 
