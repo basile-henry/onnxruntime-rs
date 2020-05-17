@@ -569,3 +569,31 @@ impl<T> std::ops::DerefMut for Tensor<T> {
         }
     }
 }
+
+impl<T> std::convert::AsRef<Value> for Tensor<T> {
+    fn as_ref(&self) -> &Value {
+        &self.val
+    }
+}
+
+impl<T> std::convert::AsMut<Value> for Tensor<T> {
+    fn as_mut(&mut self) -> &mut Value {
+        &mut self.val
+    }
+}
+
+#[macro_export]
+/// A macro which expands a list of values or tensors into a vec of value
+/// references. This is useful because you cannot have a vector of tensors of
+/// different types.
+macro_rules! values {
+    ( $( $x:expr ),* ) => {
+        {
+            let mut temp_vec = Vec::new();
+            $(
+                temp_vec.push($x.as_ref::<Value>());
+            )*
+            temp_vec
+        }
+    };
+}
