@@ -461,6 +461,30 @@ pub trait OrtType: Sized {
     fn onnx_type() -> OnnxTensorElementDataType;
 }
 
+macro_rules! ort_data_type {
+    ($t:ident, $ty:ty) => {
+        impl OrtType for $ty {
+            fn onnx_type() -> OnnxTensorElementDataType {
+                use OnnxTensorElementDataType::*;
+                $t
+            }
+        }
+    };
+}
+
+// missing: String, Complex64, Complex128, BFloat16, Undefined
+ort_data_type!(Float, f32);
+ort_data_type!(Double, f64);
+ort_data_type!(Uint8, u8);
+ort_data_type!(Int8, i8);
+ort_data_type!(Uint16, u16);
+ort_data_type!(Int16, i16);
+ort_data_type!(Uint32, u32);
+ort_data_type!(Int32, i32);
+ort_data_type!(Uint64, u64);
+ort_data_type!(Int64, i64);
+ort_data_type!(Bool, bool);
+
 impl<T: OrtType> Tensor<T> {
     pub fn new(shape: Vec<i64>, mut vec: Vec<T>) -> Result<Tensor<T>> {
         let mut raw = ptr::null_mut();
