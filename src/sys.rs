@@ -179,7 +179,6 @@ pub(crate) mod tests {
             (api.ReleaseRunOptions.unwrap())(run_options);
             (api.ReleaseSession.unwrap())(session);
             (api.ReleaseSessionOptions.unwrap())(session_options);
-            (api.ReleaseEnv.unwrap())(env);
         };
 
         Ok(())
