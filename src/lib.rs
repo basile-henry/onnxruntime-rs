@@ -59,6 +59,17 @@ pub enum Error {
     OrtError(Status),
 }
 
+impl std::error::Error for Error {}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::NulStringError(_) => write!(fmt, "null string error"),
+            Error::OrtError(st) => write!(fmt, "{:?}: {}", st.error_code, st.error_msg),
+        }
+    }
+}
+
 impl From<ffi::NulError> for Error {
     fn from(e: ffi::NulError) -> Error {
         Error::NulStringError(e)
