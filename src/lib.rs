@@ -16,7 +16,7 @@ pub use allocator::Allocator;
 
 // note that this be come after the macro definitions (in api)
 mod value;
-pub use value::Tensor;
+pub use value::{Tensor, OrtType};
 
 macro_rules! ort_type {
     ($t:ident, $r:ident) => {
