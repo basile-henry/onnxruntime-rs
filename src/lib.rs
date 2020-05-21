@@ -1,7 +1,7 @@
 use std::ffi::{self, CStr, CString};
 use std::ptr;
 
-mod sys;
+pub mod sys;
 // Re-export enums
 pub use sys::{
     AllocatorType, ErrorCode, ExecutionMode, GraphOptimizationLevel, LoggingLevel, MemType,
