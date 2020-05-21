@@ -24,6 +24,12 @@ macro_rules! ort_type {
             raw: *mut sys::$t,
         }
 
+        impl $t {
+            pub fn raw(&self) -> *mut sys::$t {
+                self.raw
+            }
+        }
+
         impl Drop for $t {
             fn drop(&mut self) {
                 unsafe { call!($r, self.raw) }
