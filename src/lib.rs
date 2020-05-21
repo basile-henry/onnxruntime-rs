@@ -128,7 +128,7 @@ impl SessionOptions {
         Ok(SessionOptions { raw })
     }
 
-    pub fn set_optimized_model_filepath(self, optimized_model_filepath: &str) -> Result<Self> {
+    pub fn set_optimized_model_filepath(&mut self, optimized_model_filepath: &str) -> Result<&mut Self> {
         let optimized_model_filepath = CString::new(optimized_model_filepath)?;
         unsafe {
             checked_call!(
@@ -140,7 +140,7 @@ impl SessionOptions {
         Ok(self)
     }
 
-    pub fn enable_profiling(self, profile_file_prefix: &str) -> Result<Self> {
+    pub fn enable_profiling(&mut self, profile_file_prefix: &str) -> Result<&mut Self> {
         let profile_file_prefix = CString::new(profile_file_prefix)?;
         unsafe {
             checked_call!(EnableProfiling, self.raw, profile_file_prefix.as_ptr())?;
@@ -148,42 +148,42 @@ impl SessionOptions {
         Ok(self)
     }
 
-    pub fn disable_profiling(self) -> Result<Self> {
+    pub fn disable_profiling(&mut self) -> Result<&mut Self> {
         unsafe {
             checked_call!(DisableProfiling, self.raw)?;
         }
         Ok(self)
     }
 
-    pub fn enable_mem_pattern(self) -> Result<Self> {
+    pub fn enable_mem_pattern(&mut self) -> Result<&mut Self> {
         unsafe {
             checked_call!(EnableMemPattern, self.raw)?;
         }
         Ok(self)
     }
 
-    pub fn disable_mem_pattern(self) -> Result<Self> {
+    pub fn disable_mem_pattern(&mut self) -> Result<&mut Self> {
         unsafe {
             checked_call!(DisableMemPattern, self.raw)?;
         }
         Ok(self)
     }
 
-    pub fn enable_cpu_mem_arena(self) -> Result<Self> {
+    pub fn enable_cpu_mem_arena(&mut self) -> Result<&mut Self> {
         unsafe {
             checked_call!(EnableCpuMemArena, self.raw)?;
         }
         Ok(self)
     }
 
-    pub fn disable_cpu_mem_arena(self) -> Result<Self> {
+    pub fn disable_cpu_mem_arena(&mut self) -> Result<&mut Self> {
         unsafe {
             checked_call!(DisableCpuMemArena, self.raw)?;
         }
         Ok(self)
     }
 
-    pub fn set_session_log_id(self, log_id: &str) -> Result<Self> {
+    pub fn set_session_log_id(&mut self, log_id: &str) -> Result<&mut Self> {
         let log_id = CString::new(log_id)?;
         unsafe {
             checked_call!(SetSessionLogId, self.raw, log_id.as_ptr())?;
@@ -191,14 +191,14 @@ impl SessionOptions {
         Ok(self)
     }
 
-    pub fn set_session_log_verbosity_level(self, verbosity_level: i32) -> Result<Self> {
+    pub fn set_session_log_verbosity_level(&mut self, verbosity_level: i32) -> Result<&mut Self> {
         unsafe {
             checked_call!(SetSessionLogVerbosityLevel, self.raw, verbosity_level)?;
         }
         Ok(self)
     }
 
-    pub fn set_session_log_severity_level(self, severity_level: i32) -> Result<Self> {
+    pub fn set_session_log_severity_level(&mut self, severity_level: i32) -> Result<&mut Self> {
         unsafe {
             checked_call!(SetSessionLogSeverityLevel, self.raw, severity_level)?;
         }
@@ -206,9 +206,9 @@ impl SessionOptions {
     }
 
     pub fn set_session_graph_optimization_level(
-        self,
+        &mut self,
         graph_optimization_level: GraphOptimizationLevel,
-    ) -> Result<Self> {
+    ) -> Result<&mut Self> {
         unsafe {
             checked_call!(
                 SetSessionGraphOptimizationLevel,
@@ -219,14 +219,14 @@ impl SessionOptions {
         Ok(self)
     }
 
-    pub fn set_intra_op_num_threads(self, intra_op_num_threads: i32) -> Result<Self> {
+    pub fn set_intra_op_num_threads(&mut self, intra_op_num_threads: i32) -> Result<&mut Self> {
         unsafe {
             checked_call!(SetIntraOpNumThreads, self.raw, intra_op_num_threads)?;
         }
         Ok(self)
     }
 
-    pub fn set_inter_op_num_threads(self, inter_op_num_threads: i32) -> Result<Self> {
+    pub fn set_inter_op_num_threads(&mut self, inter_op_num_threads: i32) -> Result<&mut Self> {
         unsafe {
             checked_call!(SetInterOpNumThreads, self.raw, inter_op_num_threads)?;
         }
