@@ -195,7 +195,8 @@ impl<T: OrtType> Tensor<T> {
 
     // must be owned or will panic, don't give it negative dims
     pub fn resize(&mut self, dims: Vec<i64>)
-        where T: Clone + Default
+    where
+        T: Clone + Default,
     {
         let len = dims.iter().product::<i64>();
         let owned = self.owned.as_mut().expect("Tensor::resize not owned");

@@ -16,7 +16,7 @@ pub use allocator::Allocator;
 
 // note that this be come after the macro definitions (in api)
 mod value;
-pub use value::{Tensor, OrtType};
+pub use value::{OrtType, Tensor};
 
 macro_rules! ort_type {
     ($t:ident, $r:ident) => {
@@ -27,6 +27,9 @@ macro_rules! ort_type {
         impl $t {
             pub fn raw(&self) -> *mut sys::$t {
                 self.raw
+            }
+            pub unsafe fn from_raw(raw: *mut sys::$t) -> Self {
+                Self { raw }
             }
         }
 
@@ -128,7 +131,10 @@ impl SessionOptions {
         Ok(SessionOptions { raw })
     }
 
-    pub fn set_optimized_model_filepath(&mut self, optimized_model_filepath: &str) -> Result<&mut Self> {
+    pub fn set_optimized_model_filepath(
+        &mut self,
+        optimized_model_filepath: &str,
+    ) -> Result<&mut Self> {
         let optimized_model_filepath = CString::new(optimized_model_filepath)?;
         unsafe {
             checked_call!(
