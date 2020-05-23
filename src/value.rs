@@ -1,4 +1,56 @@
 use crate::*;
+use std::ops::{Deref, DerefMut};
+
+/// This is what `CStr` is to `CString` for `Value`. The motivating use case for this is that
+/// `&[&Val]` can be converted to `*const sys::Value` at zero cost.
+pub struct Val {
+    raw: sys::Value,
+}
+
+impl Deref for Value {
+    type Target = Val;
+    fn deref(&self) -> &Val {
+        unsafe { &*(self.raw as *const sys::Value as *const Val) }
+    }
+}
+
+impl DerefMut for Value {
+    fn deref_mut(&mut self) -> &mut Val {
+        unsafe { &mut *(self.raw as *mut Val) }
+    }
+}
+
+impl Val {
+    pub fn raw(&self) -> *mut sys::Value {
+        &self.raw as *const sys::Value as *mut sys::Value
+    }
+
+    pub fn is_tensor(&self) -> bool {
+        let mut out = 0;
+        unsafe {
+            checked_call!(IsTensor, self.raw(), &mut out).expect("is_tensor");
+        }
+        out == 1
+    }
+
+    pub fn tensor_data(&self) -> *mut c_void {
+        let mut data = ptr::null_mut();
+        unsafe {
+            checked_call!(GetTensorMutableData, self.raw(), &mut data)
+                .expect("GetTensorMutableData");
+        }
+        data
+    }
+
+    pub fn shape_and_type(&self) -> TensorTypeAndShapeInfo {
+        let mut raw = ptr::null_mut();
+        unsafe {
+            checked_call!(GetTensorTypeAndShape, self.raw(), &mut raw)
+                .expect("TensorTypeAndShapeInfo");
+        }
+        TensorTypeAndShapeInfo { raw }
+    }
+}
 
 impl Value {
     /// Create a tensor from an allocator.
@@ -19,31 +71,6 @@ impl Value {
             )?;
         }
         Ok(Value { raw })
-    }
-
-    pub fn is_tensor(&self) -> bool {
-        let mut out = 0;
-        unsafe {
-            checked_call!(IsTensor, self.raw, &mut out).expect("is_tensor");
-        }
-        out == 1
-    }
-
-    pub fn tensor_data(&self) -> *mut c_void {
-        let mut data = ptr::null_mut();
-        unsafe {
-            checked_call!(GetTensorMutableData, self.raw, &mut data).expect("GetTensorMutableData");
-        }
-        data
-    }
-
-    pub fn shape_and_type(&self) -> TensorTypeAndShapeInfo {
-        let mut raw = ptr::null_mut();
-        unsafe {
-            checked_call!(GetTensorTypeAndShape, self.raw, &mut raw)
-                .expect("TensorTypeAndShapeInfo");
-        }
-        TensorTypeAndShapeInfo { raw }
     }
 
     pub fn as_tensor<T: OrtType>(self) -> std::result::Result<Tensor<T>, Self> {
@@ -257,14 +284,14 @@ impl<T> std::ops::DerefMut for Tensor<T> {
     }
 }
 
-impl<T> std::convert::AsRef<Value> for Tensor<T> {
-    fn as_ref(&self) -> &Value {
+impl<T> std::convert::AsRef<Val> for Tensor<T> {
+    fn as_ref(&self) -> &Val {
         &self.val
     }
 }
 
-impl<T> std::convert::AsMut<Value> for Tensor<T> {
-    fn as_mut(&mut self) -> &mut Value {
+impl<T> std::convert::AsMut<Val> for Tensor<T> {
+    fn as_mut(&mut self) -> &mut Val {
         &mut self.val
     }
 }

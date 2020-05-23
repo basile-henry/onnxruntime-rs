@@ -16,7 +16,7 @@ pub use allocator::Allocator;
 
 // note that this be come after the macro definitions (in api)
 mod value;
-pub use value::{OrtType, Tensor};
+pub use value::{OrtType, Tensor, Val};
 
 macro_rules! ort_type {
     ($t:ident, $r:ident) => {
@@ -293,44 +293,26 @@ impl Session {
     pub fn run_mut(
         &self,
         options: &RunOptions,
-        input_names: &[&str],
-        inputs: &[&Value],
-        output_names: &[&str],
-        outputs: &[&mut Value],
+        input_names: &[&CStr],
+        inputs: &[&Val],
+        output_names: &[&CStr],
+        outputs: &mut [&mut Val],
     ) -> Result<()> {
         assert_eq!(input_names.len(), inputs.len());
         assert_eq!(output_names.len(), outputs.len());
 
-        let input_names = input_names
-            .iter()
-            .map(|n| CString::new(*n))
-            .collect::<std::result::Result<Vec<_>, ffi::NulError>>()?;
-        let input_names_ptrs = input_names.iter().map(|n| n.as_ptr()).collect::<Vec<_>>();
-        let output_names = output_names
-            .iter()
-            .map(|n| CString::new(*n))
-            .collect::<std::result::Result<Vec<_>, ffi::NulError>>()?;
-        let output_names_ptrs = output_names.iter().map(|n| n.as_ptr()).collect::<Vec<_>>();
-        let inputs = inputs
-            .iter()
-            .map(|v| v.raw as *const sys::Value)
-            .collect::<Vec<_>>();
-        let mut outputs = outputs.iter().map(|v| v.raw).collect::<Vec<_>>();
-        let output_size = output_names.len() as u64;
         unsafe {
             checked_call!(
                 Run,
                 self.raw,
                 options.raw,
-                input_names_ptrs.as_ptr(),
-                inputs.as_ptr(),
+                input_names.as_ptr() as *const *const c_char,
+                inputs.as_ptr() as *const *const sys::Value,
                 inputs.len() as u64,
-                output_names_ptrs.as_ptr(),
-                output_size,
-                outputs.as_mut_ptr()
-            )?;
-
-            Ok(())
+                output_names.as_ptr() as *const *const c_char,
+                output_names.len() as u64,
+                outputs.as_mut_ptr() as *mut *mut sys::Value
+            )
         }
     }
 
@@ -481,6 +463,8 @@ mod tests {
         );
 
         // mutable version
+        let input_names: Vec<&CStr> = vec![&in_name];
+        let output_names: Vec<&CStr> = vec![&out_name];
         let mem_info = MemoryInfo::cpu_memory_info(AllocatorType::ArenaAllocator, MemType::Cpu)?;
         let output_data: Vec<f32> = vec![0.0; 3];
         let output_shape = vec![3, 1];
@@ -492,7 +476,7 @@ mod tests {
             &input_names,
             &[input_tensor.value()],
             &output_names,
-            &[output_tensor.value_mut()],
+            &mut [output_tensor.value_mut()],
         )?;
 
         assert_eq!(
