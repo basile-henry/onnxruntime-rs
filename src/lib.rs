@@ -1,4 +1,5 @@
 use std::ffi::{self, CStr, CString};
+use std::os::raw::c_char;
 use std::ptr;
 
 pub mod sys;
@@ -298,12 +299,8 @@ impl Session {
         output_names: &[&CStr],
         outputs: &mut [&mut Val],
     ) -> Result<()> {
-        eprintln!("got here");
         assert_eq!(input_names.len(), inputs.len());
         assert_eq!(output_names.len(), outputs.len());
-
-        // dbg!(input_names);
-        // dbg!(output_names);
 
         unsafe {
             checked_call!(
@@ -368,8 +365,6 @@ impl Session {
     }
 }
 
-use std::os::raw::c_char;
-
 /// An ort string with the default allocator
 pub struct OrtString {
     raw: *const c_char,
@@ -405,9 +400,7 @@ unsafe impl Sync for MemoryInfo {}
 unsafe impl Send for MemoryInfo {}
 
 lazy_static::lazy_static! {
-    /// There should only be one ORT environment existing at any given time.
-    /// This test environment is intended to be used by all the tests that
-    /// need an ORT environment instead of each creating their own.
+    /// The standard cpu memory info.
     pub static ref CPU_ARENA: MemoryInfo = {
         MemoryInfo::cpu_memory_info(AllocatorType::ArenaAllocator, MemType::Cpu).expect("CPU_ARENA")
     };
