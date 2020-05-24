@@ -28,28 +28,15 @@ impl Val {
     }
 
     pub fn is_tensor(&self) -> bool {
-        let mut out = 0;
-        unsafe {
-            checked_call!(IsTensor, self.raw(), &mut out).expect("is_tensor");
-        }
-        out == 1
+        expected_call!(IsTensor, self.raw()) == 1
     }
 
     pub fn tensor_data(&self) -> *mut c_void {
-        let mut data = ptr::null_mut();
-        unsafe {
-            checked_call!(GetTensorMutableData, self.raw(), &mut data)
-                .expect("GetTensorMutableData");
-        }
-        data
+        ptr_call!(GetTensorMutableData, self.raw()).expect("Value::tensor_data")
     }
 
     pub fn shape_and_type(&self) -> TensorTypeAndShapeInfo {
-        let mut raw = ptr::null_mut();
-        unsafe {
-            checked_call!(GetTensorTypeAndShape, self.raw(), &mut raw)
-                .expect("TensorTypeAndShapeInfo");
-        }
+        let raw = ptr_call!(GetTensorTypeAndShape, self.raw()).expect("Value::shape_and_type");
         TensorTypeAndShapeInfo { raw }
     }
 }
@@ -61,17 +48,13 @@ impl Value {
         shape: &[i64],
         data_type: OnnxTensorElementDataType,
     ) -> Result<Value> {
-        let mut raw = ptr::null_mut();
-        unsafe {
-            checked_call!(
-                CreateTensorAsOrtValue,
-                alloc.as_ptr(),
-                shape.as_ptr(),
-                shape.len() as u64,
-                data_type,
-                &mut raw
-            )?;
-        }
+        let raw = ptr_call!(
+            CreateTensorAsOrtValue,
+            alloc.as_ptr(),
+            shape.as_ptr(),
+            shape.len() as u64,
+            data_type
+        )?;
         Ok(Value { raw })
     }
 
@@ -90,11 +73,7 @@ impl Value {
 
 impl TensorTypeAndShapeInfo {
     pub fn dims(&self) -> Vec<i64> {
-        let mut num_dims = 0;
-        unsafe {
-            checked_call!(GetDimensionsCount, self.raw, &mut num_dims)
-                .expect("TensorTypeAndShapeInfo");
-        }
+        let num_dims = expected_call!(GetDimensionsCount, self.raw);
         let mut dims = vec![0; num_dims as usize];
         unsafe {
             checked_call!(
@@ -103,14 +82,14 @@ impl TensorTypeAndShapeInfo {
                 dims.as_mut_ptr(),
                 dims.len() as u64
             )
-            .expect("TensorTypeAndShapeInfo");
+            .expect("TensorTypeAndShapeInfo::dims");
         }
         dims
     }
 
     pub unsafe fn set_dims(&mut self, dims: &[i64]) {
         checked_call!(SetDimensions, self.raw, dims.as_ptr(), dims.len() as u64)
-            .expect("SetDimensions");
+            .expect("TensorTypeAndShapeInfo::set_dims");
     }
 
     /// Return the number of elements specified by the tensor shape. Return a negative value if
@@ -123,13 +102,7 @@ impl TensorTypeAndShapeInfo {
     /// [-1,3,4] -> -1
     /// ```
     pub fn elem_count(&self) -> isize {
-        let mut count = 0;
-        unsafe {
-            checked_call!(GetTensorShapeElementCount, self.raw, &mut count).expect("SetDimensions");
-        }
-        // XXX check this, feels like the c_api signature is wrong, it's size_t even though it can
-        // return negative numbers
-        count as isize
+        expected_call!(GetTensorShapeElementCount, self.raw) as isize
     }
 
     pub fn elem_type(&self) -> OnnxTensorElementDataType {
@@ -192,19 +165,15 @@ ort_data_type!(Bool, bool);
 impl<T: OrtType> Tensor<T> {
     /// Create a new tensor with the given shape and data.
     pub fn new(shape: Vec<i64>, mut vec: Vec<T>) -> Result<Tensor<T>> {
-        let mut raw = ptr::null_mut();
-        unsafe {
-            checked_call!(
-                CreateTensorWithDataAsOrtValue,
-                CPU_ARENA.raw,
-                vec.as_mut_ptr() as *mut _,
-                (vec.len() * std::mem::size_of::<T>()) as u64,
-                shape.as_ptr(),
-                shape.len() as u64,
-                T::onnx_type(),
-                &mut raw
-            )?;
-        }
+        let raw = ptr_call!(
+            CreateTensorWithDataAsOrtValue,
+            CPU_ARENA.raw,
+            vec.as_mut_ptr() as *mut _,
+            (vec.len() * std::mem::size_of::<T>()) as u64,
+            shape.as_ptr(),
+            shape.len() as u64,
+            T::onnx_type()
+        )?;
         Ok(Tensor {
             owned: Some(vec),
             val: Value { raw },
@@ -213,7 +182,8 @@ impl<T: OrtType> Tensor<T> {
     }
 
     pub fn init(shape: Vec<i64>, value: T) -> Result<Tensor<T>>
-        where T: Copy
+    where
+        T: Copy,
     {
         let len = shape.iter().product::<i64>();
         Self::new(shape, vec![value; len as usize])

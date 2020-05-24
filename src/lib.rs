@@ -113,11 +113,7 @@ impl Status {
 impl Env {
     pub fn new(logging_level: LoggingLevel, log_identifier: &str) -> Result<Self> {
         let log_identifier = CString::new(log_identifier)?;
-        let mut raw = ptr::null_mut();
-        unsafe {
-            checked_call!(CreateEnv, logging_level, log_identifier.as_ptr(), &mut raw)?;
-        }
-
+        let raw = ptr_call!(CreateEnv, logging_level, log_identifier.as_ptr())?;
         Ok(Env { raw })
     }
 }
@@ -243,11 +239,7 @@ impl SessionOptions {
 
 impl Clone for SessionOptions {
     fn clone(&self) -> Self {
-        let mut raw = ptr::null_mut();
-        unsafe {
-            checked_call!(CloneSessionOptions, self.raw, &mut raw).unwrap();
-        }
-
+        let raw = ptr_call!(CloneSessionOptions, self.raw).expect("Session::clone");
         SessionOptions { raw }
     }
 }
@@ -255,39 +247,31 @@ impl Clone for SessionOptions {
 impl Session {
     pub fn new(env: &Env, model_path: &str, options: &SessionOptions) -> Result<Self> {
         let model_path = CString::new(model_path)?;
-        let mut raw = ptr::null_mut();
-        unsafe {
-            checked_call!(
-                CreateSession,
-                env.raw,
-                model_path.as_ptr(),
-                options.raw,
-                &mut raw
-            )?;
-        }
-
+        let raw = ptr_call!(CreateSession, env.raw, model_path.as_ptr(), options.raw)?;
         Ok(Session { raw })
+    }
+
+    pub fn input_count(&self) -> usize {
+        expected_call!(SessionGetInputCount, self.raw) as usize
+    }
+
+    pub fn output_count(&self) -> usize {
+        expected_call!(SessionGetOutputCount, self.raw) as usize
+    }
+
+    pub fn overridable_initializer_count(&self) -> usize {
+        expected_call!(SessionGetOverridableInitializerCount, self.raw) as usize
     }
 
     pub fn input_name(&self, ix: u64) -> Result<OrtString> {
         let alloc = Allocator::default();
-        let mut raw = ptr::null_mut();
-
-        unsafe {
-            checked_call!(SessionGetInputName, self.raw, ix, alloc.as_ptr(), &mut raw)?;
-        }
-
+        let raw = ptr_call!(SessionGetInputName, self.raw, ix, alloc.as_ptr())?;
         Ok(OrtString { raw })
     }
 
     pub fn output_name(&self, ix: u64) -> Result<OrtString> {
         let alloc = Allocator::default();
-        let mut raw = ptr::null_mut();
-
-        unsafe {
-            checked_call!(SessionGetOutputName, self.raw, ix, alloc.as_ptr(), &mut raw)?;
-        }
-
+        let raw = ptr_call!(SessionGetOutputName, self.raw, ix, alloc.as_ptr())?;
         Ok(OrtString { raw })
     }
 
@@ -394,11 +378,7 @@ lazy_static::lazy_static! {
 
 impl RunOptions {
     pub fn new() -> RunOptions {
-        let mut raw = ptr::null_mut();
-        unsafe {
-            checked_call!(CreateRunOptions, &mut raw).expect("CreateRunOptions");
-        }
-
+        let raw = ptr_call!(CreateRunOptions).expect("RunOptions::new");
         RunOptions { raw }
     }
 }
@@ -513,7 +493,7 @@ mod tests {
         );
 
         // mutable version
-        let mut output_tensor = Tensor::<f32>::init(vec![3,1], 0.0)?;
+        let mut output_tensor = Tensor::<f32>::init(vec![3, 1], 0.0)?;
 
         run!(session(&ro) =>
             in_name: &input_tensor,
