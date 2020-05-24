@@ -44,11 +44,11 @@ macro_rules! call {
     // no arguments
     (@arg $var:expr; $(@$expect:ident)* $name:ident) => {{
         let mut var = $var;
-        unsafe { call!($(@$expect)* $name, &mut var => var) }
+        call!($(@$expect)* $name, &mut var => var)
     }};
     // multiple arguments
     (@arg $var:expr; $(@$expect:ident)* $name:ident, $($arg:expr),*) => {{
         let mut var = $var;
-        unsafe { call!($(@$expect)* $name, $($arg),*, &mut var => var) }
+        call!($(@$expect)* $name, $($arg),*, &mut var => var)
     }};
 }

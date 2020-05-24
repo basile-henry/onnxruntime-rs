@@ -28,15 +28,15 @@ impl Val {
     }
 
     pub fn is_tensor(&self) -> bool {
-        call!(@int @expect IsTensor, self.raw()) == 1
+        call!(@unsafe @int @expect IsTensor, self.raw()) == 1
     }
 
     pub fn tensor_data(&self) -> *mut c_void {
-        call!(@ptr @expect GetTensorMutableData, self.raw())
+        call!(@unsafe @ptr @expect GetTensorMutableData, self.raw())
     }
 
     pub fn shape_and_type(&self) -> TensorTypeAndShapeInfo {
-        let raw = call!(@ptr @expect GetTensorTypeAndShape, self.raw());
+        let raw = call!(@unsafe @ptr @expect GetTensorTypeAndShape, self.raw());
         TensorTypeAndShapeInfo { raw }
     }
 }
@@ -48,7 +48,7 @@ impl Value {
         shape: &[i64],
         data_type: OnnxTensorElementDataType,
     ) -> Result<Value> {
-        let raw = call!(@ptr
+        let raw = call!(@unsafe @ptr
             CreateTensorAsOrtValue,
             alloc.as_ptr(),
             shape.as_ptr(),
@@ -73,7 +73,7 @@ impl Value {
 
 impl TensorTypeAndShapeInfo {
     pub fn dims(&self) -> Vec<i64> {
-        let num_dims = call!(@int @expect GetDimensionsCount, self.raw);
+        let num_dims = call!(@unsafe @int @expect GetDimensionsCount, self.raw);
         let mut dims = vec![0; num_dims as usize];
         call!(@unsafe @expect
             GetDimensions,
@@ -98,11 +98,11 @@ impl TensorTypeAndShapeInfo {
     /// [-1,3,4] -> -1
     /// ```
     pub fn elem_count(&self) -> isize {
-        call!(@int @expect GetTensorShapeElementCount, self.raw) as isize
+        call!(@unsafe @int @expect GetTensorShapeElementCount, self.raw) as isize
     }
 
     pub fn elem_type(&self) -> OnnxTensorElementDataType {
-        call!(@arg OnnxTensorElementDataType::Undefined; @expect
+        call!(@unsafe @arg OnnxTensorElementDataType::Undefined; @expect
               GetTensorElementType, self.raw)
     }
 
@@ -158,7 +158,7 @@ ort_data_type!(Bool, bool);
 impl<T: OrtType> Tensor<T> {
     /// Create a new tensor with the given shape and data.
     pub fn new(shape: Vec<i64>, mut vec: Vec<T>) -> Result<Tensor<T>> {
-        let raw = call!(@ptr
+        let raw = call!(@unsafe @ptr
             CreateTensorWithDataAsOrtValue,
             CPU_ARENA.raw,
             vec.as_mut_ptr() as *mut _,

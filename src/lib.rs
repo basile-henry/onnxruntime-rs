@@ -36,7 +36,7 @@ macro_rules! ort_type {
 
         impl Drop for $t {
             fn drop(&mut self) {
-                unsafe { call!(@raw $r, self.raw) }
+                call!(@unsafe @raw $r, self.raw)
             }
         }
     };
@@ -90,30 +90,30 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 impl Status {
     fn new(raw: *mut sys::Status) -> Option<Status> {
-        unsafe {
-            if raw.is_null() {
-                return None;
-            }
-
-            let error_code = call!(@raw GetErrorCode, raw);
-            let error_msg = CStr::from_ptr(call!(@raw GetErrorMessage, raw))
-                .to_string_lossy()
-                .into_owned();
-
-            call!(@raw ReleaseStatus, raw);
-
-            Some(Status {
-                error_code,
-                error_msg,
-            })
+        if raw.is_null() {
+            return None;
         }
+
+        let error_code = call!(@unsafe @raw GetErrorCode, raw);
+        let error_msg = unsafe {
+            CStr::from_ptr(call!(@raw GetErrorMessage, raw))
+                .to_string_lossy()
+                .into_owned()
+        };
+
+        call!(@unsafe @raw ReleaseStatus, raw);
+
+        Some(Status {
+            error_code,
+            error_msg,
+        })
     }
 }
 
 impl Env {
     pub fn new(logging_level: LoggingLevel, log_identifier: &str) -> Result<Self> {
         let log_identifier = CString::new(log_identifier)?;
-        let raw = call!(@ptr CreateEnv, logging_level, log_identifier.as_ptr())?;
+        let raw = call!(@unsafe @ptr CreateEnv, logging_level, log_identifier.as_ptr())?;
         Ok(Env { raw })
     }
 }
@@ -122,9 +122,7 @@ macro_rules! option {
     ($(#[$outer:meta])* $ort_name:ident => $name:ident) => {
         $(#[$outer])*
         pub fn $name(&mut self) -> Result<&mut Self> {
-            unsafe {
-                call!($ort_name, self.raw)?;
-            }
+            call!(@unsafe $ort_name, self.raw)?;
             Ok(self)
         }
     };
@@ -132,9 +130,7 @@ macro_rules! option {
     ($(#[$outer:meta])* $ort_name:ident => $name:ident($arg_name:ident: $arg_ty:ty $(| .$fn:ident())?)) => {
         $(#[$outer])*
         pub fn $name(&mut self, $arg_name: $arg_ty) -> Result<&mut Self> {
-            unsafe {
-                call!($ort_name, self.raw, $arg_name$(.$fn())?)?;
-            }
+            call!(@unsafe $ort_name, self.raw, $arg_name$(.$fn())?)?;
             Ok(self)
         }
     };
@@ -142,7 +138,7 @@ macro_rules! option {
 
 impl SessionOptions {
     pub fn new() -> Result<Self> {
-        let raw = call!(@ptr CreateSessionOptions)?;
+        let raw = call!(@unsafe @ptr CreateSessionOptions)?;
         Ok(SessionOptions { raw })
     }
 
@@ -151,21 +147,17 @@ impl SessionOptions {
         optimized_model_filepath: &str,
     ) -> Result<&mut Self> {
         let optimized_model_filepath = CString::new(optimized_model_filepath)?;
-        unsafe {
-            call!(
-                SetOptimizedModelFilePath,
-                self.raw,
-                optimized_model_filepath.as_ptr()
-            )?;
-        }
+        call!(@unsafe
+            SetOptimizedModelFilePath,
+            self.raw,
+            optimized_model_filepath.as_ptr()
+        )?;
         Ok(self)
     }
 
     pub fn enable_profiling(&mut self, profile_file_prefix: &str) -> Result<&mut Self> {
         let profile_file_prefix = CString::new(profile_file_prefix)?;
-        unsafe {
-            call!(EnableProfiling, self.raw, profile_file_prefix.as_ptr())?;
-        }
+        call!(@unsafe EnableProfiling, self.raw, profile_file_prefix.as_ptr())?;
         Ok(self)
     }
 
@@ -180,9 +172,7 @@ impl SessionOptions {
 
     pub fn set_session_log_id(&mut self, log_id: &str) -> Result<&mut Self> {
         let log_id = CString::new(log_id)?;
-        unsafe {
-            call!(SetSessionLogId, self.raw, log_id.as_ptr())?;
-        }
+        call!(@unsafe SetSessionLogId, self.raw, log_id.as_ptr())?;
         Ok(self)
     }
 
@@ -197,7 +187,7 @@ impl SessionOptions {
 
 impl Clone for SessionOptions {
     fn clone(&self) -> Self {
-        let raw = call!(@ptr @expect CloneSessionOptions, self.raw);
+        let raw = call!(@unsafe @ptr @expect CloneSessionOptions, self.raw);
         SessionOptions { raw }
     }
 }
@@ -205,31 +195,31 @@ impl Clone for SessionOptions {
 impl Session {
     pub fn new(env: &Env, model_path: &str, options: &SessionOptions) -> Result<Self> {
         let model_path = CString::new(model_path)?;
-        let raw = call!(@ptr CreateSession, env.raw, model_path.as_ptr(), options.raw)?;
+        let raw = call!(@unsafe @ptr CreateSession, env.raw, model_path.as_ptr(), options.raw)?;
         Ok(Session { raw })
     }
 
     pub fn input_count(&self) -> usize {
-        call!(@int @expect SessionGetInputCount, self.raw) as usize
+        call!(@unsafe @int @expect SessionGetInputCount, self.raw) as usize
     }
 
     pub fn output_count(&self) -> usize {
-        call!(@int @expect SessionGetOutputCount, self.raw) as usize
+        call!(@unsafe @int @expect SessionGetOutputCount, self.raw) as usize
     }
 
     pub fn overridable_initializer_count(&self) -> usize {
-        call!(@int @expect SessionGetOverridableInitializerCount, self.raw) as usize
+        call!(@unsafe @int @expect SessionGetOverridableInitializerCount, self.raw) as usize
     }
 
     pub fn input_name(&self, ix: u64) -> Result<OrtString> {
         let alloc = Allocator::default();
-        let raw = call!(@ptr SessionGetInputName, self.raw, ix, alloc.as_ptr())?;
+        let raw = call!(@unsafe @ptr SessionGetInputName, self.raw, ix, alloc.as_ptr())?;
         Ok(OrtString { raw })
     }
 
     pub fn output_name(&self, ix: u64) -> Result<OrtString> {
         let alloc = Allocator::default();
-        let raw = call!(@ptr SessionGetOutputName, self.raw, ix, alloc.as_ptr())?;
+        let raw = call!(@unsafe @ptr SessionGetOutputName, self.raw, ix, alloc.as_ptr())?;
         Ok(OrtString { raw })
     }
 
@@ -244,19 +234,17 @@ impl Session {
         assert_eq!(input_names.len(), inputs.len());
         assert_eq!(output_names.len(), outputs.len());
 
-        unsafe {
-            call!(
-                Run,
-                self.raw,
-                options.raw,
-                input_names.as_ptr() as *const *const c_char,
-                inputs.as_ptr() as *const *const sys::Value,
-                inputs.len() as u64,
-                output_names.as_ptr() as *const *const c_char,
-                output_names.len() as u64,
-                outputs.as_mut_ptr() as *mut *mut sys::Value
-            )
-        }
+        call!(@unsafe
+            Run,
+            self.raw,
+            options.raw,
+            input_names.as_ptr() as *const *const c_char,
+            inputs.as_ptr() as *const *const sys::Value,
+            inputs.len() as u64,
+            output_names.as_ptr() as *const *const c_char,
+            output_names.len() as u64,
+            outputs.as_mut_ptr() as *mut *mut sys::Value
+        )
     }
 
     pub fn run_raw(
@@ -270,19 +258,19 @@ impl Session {
 
         let output_size = output_names.len() as u64;
         let mut raw_outputs: *mut sys::Value = ptr::null_mut();
-        unsafe {
-            call!(
-                Run,
-                self.raw,
-                options.raw,
-                input_names.as_ptr() as *const *const c_char,
-                inputs.as_ptr() as *const *const sys::Value,
-                inputs.len() as u64,
-                output_names.as_ptr() as *const *const c_char,
-                output_size,
-                &mut raw_outputs
-            )?;
+        call!(@unsafe
+            Run,
+            self.raw,
+            options.raw,
+            input_names.as_ptr() as *const *const c_char,
+            inputs.as_ptr() as *const *const sys::Value,
+            inputs.len() as u64,
+            output_names.as_ptr() as *const *const c_char,
+            output_size,
+            &mut raw_outputs
+        )?;
 
+        unsafe {
             Ok(
                 std::slice::from_raw_parts(&raw_outputs, output_size as usize)
                     .iter()
@@ -315,11 +303,7 @@ impl Drop for OrtString {
 
 impl MemoryInfo {
     pub fn cpu_memory_info(alloc_type: AllocatorType, mem_type: MemType) -> Result<Self> {
-        let mut raw = ptr::null_mut();
-        unsafe {
-            call!(CreateCpuMemoryInfo, alloc_type, mem_type, &mut raw)?;
-        }
-
+        let raw = call!(@unsafe @ptr CreateCpuMemoryInfo, alloc_type, mem_type)?;
         Ok(MemoryInfo { raw })
     }
 }
@@ -336,7 +320,7 @@ lazy_static::lazy_static! {
 
 impl RunOptions {
     pub fn new() -> RunOptions {
-        let raw = call!(@ptr @expect CreateRunOptions);
+        let raw = call!(@unsafe @ptr @expect CreateRunOptions);
         RunOptions { raw }
     }
 }

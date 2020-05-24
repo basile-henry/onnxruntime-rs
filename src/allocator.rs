@@ -8,7 +8,7 @@ pub struct Allocator {
 
 impl Default for Allocator {
     fn default() -> Self {
-        let raw = call!(@ptr @expect GetAllocatorWithDefaultOptions);
+        let raw = call!(@unsafe @ptr @expect GetAllocatorWithDefaultOptions);
         Allocator { raw }
     }
 }
