@@ -298,8 +298,12 @@ impl Session {
         output_names: &[&CStr],
         outputs: &mut [&mut Val],
     ) -> Result<()> {
+        eprintln!("got here");
         assert_eq!(input_names.len(), inputs.len());
         assert_eq!(output_names.len(), outputs.len());
+
+        // dbg!(input_names);
+        // dbg!(output_names);
 
         unsafe {
             checked_call!(
@@ -408,6 +412,67 @@ impl RunOptions {
     }
 }
 
+#[macro_export]
+#[doc(hidden)]
+macro_rules! unexpected {
+    () => {};
+}
+
+#[macro_export]
+/// A macro for calling run on a session. Usage:
+///
+/// ```ignore
+/// run!(my_session(&my_session_options) =>
+///    my_input_name: &my_input_tensor,
+///    my_output_name: &mut my_output_tensor,
+/// )?;
+/// ```
+/// Trailing commas are required.
+macro_rules! run {
+    // finished with a trailing comma
+    ( @map $session:ident $ro:expr;
+            [$($in_names:expr,)*] [$($in_vals:expr,)*]
+            [$($out_names:expr,)*] [$($out_vals:expr,)*]) => {
+        $session.run_mut(
+                    $ro,
+                    &[$($in_names,)*],
+                    &[$($in_vals,)*],
+                    &[$($out_names,)*],
+                    &mut [$($out_vals,)*],
+                )
+    };
+
+    // &mut reference means output
+    ( @map $session:ident $ro:expr;
+            [$($in_names:expr,)*] [$($in_vals:expr,)*]
+            [$($out_names:expr,)*] [$($out_vals:expr,)*]
+            $name:ident: &mut $val:expr, $($rest:tt)* ) => {
+        run!(@map $session $ro;
+                    [$($in_names,)*] [$($in_vals,)*]
+                    [$($out_names,)* $name.as_ref(),] [$($out_vals,)* $val.as_mut(),]
+                    $($rest)*
+        )
+    };
+
+    // &reference means input
+    ( @map $session:ident $ro:expr;
+            [$($in_names:expr,)*] [$($in_vals:expr,)*]
+            [$($out_names:expr,)*] [$($out_vals:expr,)*]
+        $name:ident: &$val:expr, $($rest:tt)* ) => {
+        run!(@map $session $ro;
+                    [$($in_names,)* $name.as_ref(),] [$($in_vals,)* $val.as_ref(),]
+                    [$($out_names,)*] [$($out_vals,)*]
+                    $($rest)*
+        )
+    };
+
+    // something didn't match for the io mapping (doing this prevents more permissive matches from
+    // matching the @map and giving confusing type errors).
+    ( @map $($tt:tt)+ ) => { unexpected!($($tt)+) };
+
+    ( $session:ident($ro:expr) => $($tt:tt)+ ) => { run!(@map $session $ro; [] [] [] [] $($tt)+) };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -463,20 +528,15 @@ mod tests {
         );
 
         // mutable version
-        let input_names: Vec<&CStr> = vec![&in_name];
-        let output_names: Vec<&CStr> = vec![&out_name];
         let mem_info = MemoryInfo::cpu_memory_info(AllocatorType::ArenaAllocator, MemType::Cpu)?;
         let output_data: Vec<f32> = vec![0.0; 3];
         let output_shape = vec![3, 1];
 
         let mut output_tensor = Tensor::new(mem_info, output_shape, output_data)?;
 
-        session.run_mut(
-            &ro,
-            &input_names,
-            &[input_tensor.value()],
-            &output_names,
-            &mut [output_tensor.value_mut()],
+        run!(session(&ro) =>
+            in_name: &input_tensor,
+            out_name: &mut output_tensor,
         )?;
 
         assert_eq!(
