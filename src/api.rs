@@ -22,26 +22,33 @@ macro_rules! call {
         }
     }};
 
-    // checked call without a return
-    ($name:ident, $($arg:expr),*) => { call!($name, $($arg),* => ()) };
+    // leading expect means expect
+    (@unsafe $($rest:tt)*) => {{
+        unsafe { call!($($rest)*) }
+    }};
 
     // leading expect means expect
     (@expect $name:ident, $($rest:tt)*) => {{
         call!($name, $($rest)*).expect(stringify!($name))
     }};
 
+    // checked call without a return
+    ($name:ident, $($arg:expr),*) => { call!($name, $($arg),* => ()) };
+
+    // types that use the last argument for the call by mut ref return type
+
     // the type to initialise with the @type syntax
-    (@var @int) => {0};
-    (@var @ptr) => {::std::ptr::null_mut();};
+    (@int $($rest:tt)*) => { call!(@arg 0; $($rest)*) };
+    (@ptr $($rest:tt)*) => { call!(@arg ::std::ptr::null_mut(); $($rest)*) };
 
     // no arguments
-    (@$ty:ident $(@$expect:ident)? $name:ident) => {{
-        let mut var = call!(@var @$ty);
-        unsafe { call!($(@$expect)? $name, &mut var => var) }
+    (@arg $var:expr; $(@$expect:ident)* $name:ident) => {{
+        let mut var = $var;
+        unsafe { call!($(@$expect)* $name, &mut var => var) }
     }};
     // multiple arguments
-    (@$ty:ident $(@$expect:ident)? $name:ident, $($arg:expr),*) => {{
-        let mut var = call!(@var @$ty);
-        unsafe { call!($(@$expect)? $name, $($arg),*, &mut var => var) }
+    (@arg $var:expr; $(@$expect:ident)* $name:ident, $($arg:expr),*) => {{
+        let mut var = $var;
+        unsafe { call!($(@$expect)* $name, $($arg),*, &mut var => var) }
     }};
 }

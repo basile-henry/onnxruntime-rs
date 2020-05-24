@@ -75,21 +75,17 @@ impl TensorTypeAndShapeInfo {
     pub fn dims(&self) -> Vec<i64> {
         let num_dims = call!(@int @expect GetDimensionsCount, self.raw);
         let mut dims = vec![0; num_dims as usize];
-        unsafe {
-            call!(
-                GetDimensions,
-                self.raw,
-                dims.as_mut_ptr(),
-                dims.len() as u64
-            )
-            .expect("TensorTypeAndShapeInfo::dims");
-        }
+        call!(@unsafe @expect
+            GetDimensions,
+            self.raw,
+            dims.as_mut_ptr(),
+            dims.len() as u64
+        );
         dims
     }
 
     pub unsafe fn set_dims(&mut self, dims: &[i64]) {
-        call!(SetDimensions, self.raw, dims.as_ptr(), dims.len() as u64)
-            .expect("TensorTypeAndShapeInfo::set_dims");
+        call!(@expect SetDimensions, self.raw, dims.as_ptr(), dims.len() as u64)
     }
 
     /// Return the number of elements specified by the tensor shape. Return a negative value if
@@ -106,11 +102,8 @@ impl TensorTypeAndShapeInfo {
     }
 
     pub fn elem_type(&self) -> OnnxTensorElementDataType {
-        let mut info = OnnxTensorElementDataType::Undefined;
-        unsafe {
-            call!(GetTensorElementType, self.raw, &mut info).expect("SetDimensions");
-        }
-        info
+        call!(@arg OnnxTensorElementDataType::Undefined; @expect
+              GetTensorElementType, self.raw)
     }
 
     // no documentation for this?
