@@ -99,9 +99,12 @@ impl TensorInfo {
         &self.raw as *const sys::TensorTypeAndShapeInfo as *mut _
     }
 
+    pub fn num_dims(&self) -> usize {
+        call!(@unsafe @int @expect GetDimensionsCount, self.raw()) as usize
+    }
+
     pub fn dims(&self) -> Vec<i64> {
-        let num_dims = call!(@unsafe @int @expect GetDimensionsCount, self.raw());
-        let mut dims = vec![0; num_dims as usize];
+        let mut dims = vec![0; self.num_dims() as usize];
         call!(@unsafe @expect
             GetDimensions,
             self.raw(),
@@ -133,18 +136,22 @@ impl TensorInfo {
               GetTensorElementType, self.raw())
     }
 
-    // no documentation for this?
-    // pub fn symbolic_dims(&mut self) -> impl Iterator<Item=&str> {
-    //     let mut dims = vec![0; num_dims as usize];
-    //     unsafe {
-    //         call!(
-    //             GetSymbolicDimensions,
-    //             self.raw,
-    //             dims.as_ptr(),
-    //             dims.len() as u64
-    //         ).expect("GetSymbolicDimensions");
-    //     }
-    // }
+    pub fn symbolic_dims(&self) -> impl Iterator<Item = &CStr> {
+        let mut dims = vec![ptr::null(); self.num_dims() as usize];
+        call!(@unsafe @expect
+            GetSymbolicDimensions,
+            self.raw(),
+            dims.as_mut_ptr(),
+            dims.len() as u64
+        );
+        dims.into_iter().map(|ptr| {
+            if ptr.is_null() {
+                Default::default()
+            } else {
+                unsafe { CStr::from_ptr(ptr) }
+            }
+        })
+    }
 }
 
 pub struct Tensor<T> {
