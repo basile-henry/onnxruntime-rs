@@ -129,7 +129,7 @@ macro_rules! options {
         options! {$($rest)*}
     };
 
-    // treat &str specially becuase we make a cstring version
+    // treat &str specially because we make a cstring version
     ($(#[$outer:meta])* fn $name:ident($arg_name:ident: &str) { $ort_name:ident }; $($rest:tt)*) => {
         $(#[$outer])*
         pub fn $name(&mut self, $arg_name: &str) -> Result<&mut Self> {
@@ -314,6 +314,20 @@ impl RunOptions {
     pub fn new() -> RunOptions {
         let raw = call!(@unsafe @ptr @expect CreateRunOptions);
         RunOptions { raw }
+    }
+
+    options! {
+    /// Set a flag so that ALL incomplete OrtRun calls that are using this instance of
+    /// `RunOptions` will exit as soon as possible.
+    fn set_terminate() {RunOptionsSetTerminate};
+
+    /// Unset the terminate flag to enable this `RunOptions` instance being used in new `run`
+    /// calls.
+    fn unset_terminate() {RunOptionsUnsetTerminate};
+
+    fn set_log_verbosity_level(verbositity_level: i32) {RunOptionsSetRunLogVerbosityLevel};
+    fn set_log_severity_level(severity_level: i32) {RunOptionsSetRunLogSeverityLevel};
+    fn set_tag(verbositity_level: &str) {RunOptionsSetRunTag};
     }
 }
 
