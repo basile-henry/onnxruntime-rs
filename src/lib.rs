@@ -118,31 +118,37 @@ impl Env {
     }
 }
 
-macro_rules! option {
-    ($(#[$outer:meta])* $ort_name:ident => $name:ident) => {
+macro_rules! options {
+    () => {};
+    ($(#[$outer:meta])* fn $name:ident() { $ort_name:ident }; $($rest:tt)*) => {
         $(#[$outer])*
         pub fn $name(&mut self) -> Result<&mut Self> {
             call!(@unsafe $ort_name, self.raw)?;
             Ok(self)
         }
+        options! {$($rest)*}
     };
 
     // treat &str specially becuase we make a cstring version
-    ($(#[$outer:meta])* $ort_name:ident => $name:ident($arg_name:ident: &str)) => {
+    ($(#[$outer:meta])* fn $name:ident($arg_name:ident: &str) { $ort_name:ident }; $($rest:tt)*) => {
         $(#[$outer])*
         pub fn $name(&mut self, $arg_name: &str) -> Result<&mut Self> {
             let cstr = CString::new($arg_name)?;
             call!(@unsafe $ort_name, self.raw, cstr.as_ptr())?;
             Ok(self)
         }
+        options! {$($rest)*}
     };
 
-    ($(#[$outer:meta])* $ort_name:ident => $name:ident($arg_name:ident: $arg_ty:ty $(| .$fn:ident())?)) => {
+    ($(#[$outer:meta])*
+     fn $name:ident($arg_name:ident: $arg_ty:ty $(| .$fn:ident())?) {$ort_name:ident};
+     $($rest:tt)*) => {
         $(#[$outer])*
         pub fn $name(&mut self, $arg_name: $arg_ty) -> Result<&mut Self> {
             call!(@unsafe $ort_name, self.raw, $arg_name$(.$fn())?)?;
             Ok(self)
         }
+        options! {$($rest)*}
     };
 }
 
@@ -152,24 +158,23 @@ impl SessionOptions {
         Ok(SessionOptions { raw })
     }
 
-    option!(SetOptimizedModelFilePath => set_optimized_model_filepath(optimized_model_filepath: &str));
-    option!(EnableProfiling => enable_profiling(profile_file_prefix: &str));
-    option!(
-        /// Disables profiling.
-        DisableProfiling => disable_profiling
-    );
-    option!(EnableMemPattern => enable_mem_pattern);
-    option!(DisableMemPattern => disable_mem_pattern);
-    option!(EnableCpuMemArena => enable_cpu_mem_arena);
-    option!(DisableCpuMemArena => disable_cpu_mem_arena);
-    option!(SetSessionLogId => set_session_log_id(log_id: &str));
-    option!(EnableProfiling => en_prof(path: &CStr | .as_ptr()));
-    option!(SetSessionLogVerbosityLevel => set_session_log_verbosity_level(verbosity_level: i32));
-    option!(SetSessionLogSeverityLevel => set_session_log_severity_level(severity_level: i32));
-    option!(SetSessionGraphOptimizationLevel =>
-        set_session_graph_optimization_level(graph_optimization_level: GraphOptimizationLevel));
-    option!(SetIntraOpNumThreads => set_intra_op_num_threads(intra_op_num_threads: i32));
-    option!(SetInterOpNumThreads => set_inter_op_num_threads(intra_op_num_threads: i32));
+    options! {
+    fn enable_mem_pattern() { EnableMemPattern };
+    fn disable_mem_pattern() { DisableMemPattern };
+    fn set_optimized_model_filepath(optimized_model_filepath: &str) { SetOptimizedModelFilePath };
+    fn enable_profiling(profile_file_prefix: &str) { EnableProfiling };
+    fn disable_profiling() { DisableProfiling };
+    fn enable_cpu_mem_arena() { EnableCpuMemArena };
+    fn disable_cpu_mem_arena() { DisableCpuMemArena };
+    fn set_session_log_id(log_id: &str) { SetSessionLogId };
+    fn en_prof(path: &CStr | .as_ptr()) { EnableProfiling };
+    fn set_session_log_verbosity_level(verbosity_level: i32) {SetSessionLogVerbosityLevel };
+    fn set_session_log_severity_level(severity_level: i32) {SetSessionLogSeverityLevel };
+    fn set_session_graph_optimization_level(graph_optimization_level: GraphOptimizationLevel)
+        { SetSessionGraphOptimizationLevel };
+    fn set_intra_op_num_threads(intra_op_num_threads: i32) {SetIntraOpNumThreads };
+    fn set_inter_op_num_threads(intra_op_num_threads: i32) {SetInterOpNumThreads };
+    }
 }
 
 impl Clone for SessionOptions {
