@@ -8,46 +8,40 @@ lazy_static::lazy_static! {
 
 #[macro_use]
 macro_rules! call {
-    ($name:ident, $($arg:expr),*) => {
+    // the raw call
+    (@raw $name:ident, $($arg:expr),*) => {
         (crate::api::API.$name.expect(concat!("ORT api: \"", stringify!($name), "\" unavailable", )))($($arg),*)
-    }
-}
+    };
 
-#[macro_use]
-macro_rules! checked_call {
-    ($name:ident, $($arg:expr),*) => { checked_call!($name, $($arg),* => ()) };
-
+    // the checked call that returns Ok(res) on success
     ($name:ident, $($arg:expr),* => $res:expr) => {{
-        let status = call!($name, $($arg),*);
+        let status = call!(@raw $name, $($arg),*);
         match crate::Status::new(status) {
             Some(status) => std::result::Result::Err(crate::Error::OrtError(status)),
             None => std::result::Result::Ok($res),
         }
     }};
-}
 
-#[macro_use]
-macro_rules! ptr_call {
-    ($name:ident) => {{
-        let mut ptr = ::std::ptr::null_mut();
-        unsafe { checked_call!($name, &mut ptr => ptr) }
+    // checked call without a return
+    ($name:ident, $($arg:expr),*) => { call!($name, $($arg),* => ()) };
+
+    // leading expect means expect
+    (@expect $name:ident, $($rest:tt)*) => {{
+        call!($name, $($rest)*).expect(stringify!($name))
     }};
-    ($name:ident, $($arg:expr),*) => {{
-        let mut ptr = ::std::ptr::null_mut();
-        unsafe { checked_call!($name, $($arg),*, &mut ptr => ptr) }
-    }}
-}
 
-#[macro_use]
-macro_rules! expected_call {
-    ($name:ident, $($arg:expr),*) => {{
-        let mut ptr = Default::default();
-        let status = unsafe { call!($name, $($arg),*, &mut ptr) };
-        match crate::Status::new(status) {
-            Some(status) =>
-                panic!(concat!(stringify!($name), "failed: {}"),
-                       crate::Error::OrtError(status)),
-            None => ptr,
-        }
-    }}
+    // the type to initialise with the @type syntax
+    (@var @int) => {0};
+    (@var @ptr) => {::std::ptr::null_mut();};
+
+    // no arguments
+    (@$ty:ident $(@$expect:ident)? $name:ident) => {{
+        let mut var = call!(@var @$ty);
+        unsafe { call!($(@$expect)? $name, &mut var => var) }
+    }};
+    // multiple arguments
+    (@$ty:ident $(@$expect:ident)? $name:ident, $($arg:expr),*) => {{
+        let mut var = call!(@var @$ty);
+        unsafe { call!($(@$expect)? $name, $($arg),*, &mut var => var) }
+    }};
 }

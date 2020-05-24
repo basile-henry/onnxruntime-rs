@@ -28,15 +28,15 @@ impl Val {
     }
 
     pub fn is_tensor(&self) -> bool {
-        expected_call!(IsTensor, self.raw()) == 1
+        call!(@int @expect IsTensor, self.raw()) == 1
     }
 
     pub fn tensor_data(&self) -> *mut c_void {
-        ptr_call!(GetTensorMutableData, self.raw()).expect("Value::tensor_data")
+        call!(@ptr @expect GetTensorMutableData, self.raw())
     }
 
     pub fn shape_and_type(&self) -> TensorTypeAndShapeInfo {
-        let raw = ptr_call!(GetTensorTypeAndShape, self.raw()).expect("Value::shape_and_type");
+        let raw = call!(@ptr @expect GetTensorTypeAndShape, self.raw());
         TensorTypeAndShapeInfo { raw }
     }
 }
@@ -48,7 +48,7 @@ impl Value {
         shape: &[i64],
         data_type: OnnxTensorElementDataType,
     ) -> Result<Value> {
-        let raw = ptr_call!(
+        let raw = call!(@ptr
             CreateTensorAsOrtValue,
             alloc.as_ptr(),
             shape.as_ptr(),
@@ -73,10 +73,10 @@ impl Value {
 
 impl TensorTypeAndShapeInfo {
     pub fn dims(&self) -> Vec<i64> {
-        let num_dims = expected_call!(GetDimensionsCount, self.raw);
+        let num_dims = call!(@int @expect GetDimensionsCount, self.raw);
         let mut dims = vec![0; num_dims as usize];
         unsafe {
-            checked_call!(
+            call!(
                 GetDimensions,
                 self.raw,
                 dims.as_mut_ptr(),
@@ -88,7 +88,7 @@ impl TensorTypeAndShapeInfo {
     }
 
     pub unsafe fn set_dims(&mut self, dims: &[i64]) {
-        checked_call!(SetDimensions, self.raw, dims.as_ptr(), dims.len() as u64)
+        call!(SetDimensions, self.raw, dims.as_ptr(), dims.len() as u64)
             .expect("TensorTypeAndShapeInfo::set_dims");
     }
 
@@ -102,13 +102,13 @@ impl TensorTypeAndShapeInfo {
     /// [-1,3,4] -> -1
     /// ```
     pub fn elem_count(&self) -> isize {
-        expected_call!(GetTensorShapeElementCount, self.raw) as isize
+        call!(@int @expect GetTensorShapeElementCount, self.raw) as isize
     }
 
     pub fn elem_type(&self) -> OnnxTensorElementDataType {
         let mut info = OnnxTensorElementDataType::Undefined;
         unsafe {
-            checked_call!(GetTensorElementType, self.raw, &mut info).expect("SetDimensions");
+            call!(GetTensorElementType, self.raw, &mut info).expect("SetDimensions");
         }
         info
     }
@@ -117,7 +117,7 @@ impl TensorTypeAndShapeInfo {
     // pub fn symbolic_dims(&mut self) -> impl Iterator<Item=&str> {
     //     let mut dims = vec![0; num_dims as usize];
     //     unsafe {
-    //         checked_call!(
+    //         call!(
     //             GetSymbolicDimensions,
     //             self.raw,
     //             dims.as_ptr(),
@@ -165,7 +165,7 @@ ort_data_type!(Bool, bool);
 impl<T: OrtType> Tensor<T> {
     /// Create a new tensor with the given shape and data.
     pub fn new(shape: Vec<i64>, mut vec: Vec<T>) -> Result<Tensor<T>> {
-        let raw = ptr_call!(
+        let raw = call!(@ptr
             CreateTensorWithDataAsOrtValue,
             CPU_ARENA.raw,
             vec.as_mut_ptr() as *mut _,

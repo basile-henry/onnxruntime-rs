@@ -36,7 +36,7 @@ macro_rules! ort_type {
 
         impl Drop for $t {
             fn drop(&mut self) {
-                unsafe { call!($r, self.raw) }
+                unsafe { call!(@raw $r, self.raw) }
             }
         }
     };
@@ -95,12 +95,12 @@ impl Status {
                 return None;
             }
 
-            let error_code = call!(GetErrorCode, raw);
-            let error_msg = CStr::from_ptr(call!(GetErrorMessage, raw))
+            let error_code = call!(@raw GetErrorCode, raw);
+            let error_msg = CStr::from_ptr(call!(@raw GetErrorMessage, raw))
                 .to_string_lossy()
                 .into_owned();
 
-            call!(ReleaseStatus, raw);
+            call!(@raw ReleaseStatus, raw);
 
             Some(Status {
                 error_code,
@@ -113,18 +113,14 @@ impl Status {
 impl Env {
     pub fn new(logging_level: LoggingLevel, log_identifier: &str) -> Result<Self> {
         let log_identifier = CString::new(log_identifier)?;
-        let raw = ptr_call!(CreateEnv, logging_level, log_identifier.as_ptr())?;
+        let raw = call!(@ptr CreateEnv, logging_level, log_identifier.as_ptr())?;
         Ok(Env { raw })
     }
 }
 
 impl SessionOptions {
     pub fn new() -> Result<Self> {
-        let mut raw = ptr::null_mut();
-        unsafe {
-            checked_call!(CreateSessionOptions, &mut raw)?;
-        }
-
+        let raw = call!(@ptr CreateSessionOptions)?;
         Ok(SessionOptions { raw })
     }
 
@@ -134,7 +130,7 @@ impl SessionOptions {
     ) -> Result<&mut Self> {
         let optimized_model_filepath = CString::new(optimized_model_filepath)?;
         unsafe {
-            checked_call!(
+            call!(
                 SetOptimizedModelFilePath,
                 self.raw,
                 optimized_model_filepath.as_ptr()
@@ -146,42 +142,42 @@ impl SessionOptions {
     pub fn enable_profiling(&mut self, profile_file_prefix: &str) -> Result<&mut Self> {
         let profile_file_prefix = CString::new(profile_file_prefix)?;
         unsafe {
-            checked_call!(EnableProfiling, self.raw, profile_file_prefix.as_ptr())?;
+            call!(EnableProfiling, self.raw, profile_file_prefix.as_ptr())?;
         }
         Ok(self)
     }
 
     pub fn disable_profiling(&mut self) -> Result<&mut Self> {
         unsafe {
-            checked_call!(DisableProfiling, self.raw)?;
+            call!(DisableProfiling, self.raw)?;
         }
         Ok(self)
     }
 
     pub fn enable_mem_pattern(&mut self) -> Result<&mut Self> {
         unsafe {
-            checked_call!(EnableMemPattern, self.raw)?;
+            call!(EnableMemPattern, self.raw)?;
         }
         Ok(self)
     }
 
     pub fn disable_mem_pattern(&mut self) -> Result<&mut Self> {
         unsafe {
-            checked_call!(DisableMemPattern, self.raw)?;
+            call!(DisableMemPattern, self.raw)?;
         }
         Ok(self)
     }
 
     pub fn enable_cpu_mem_arena(&mut self) -> Result<&mut Self> {
         unsafe {
-            checked_call!(EnableCpuMemArena, self.raw)?;
+            call!(EnableCpuMemArena, self.raw)?;
         }
         Ok(self)
     }
 
     pub fn disable_cpu_mem_arena(&mut self) -> Result<&mut Self> {
         unsafe {
-            checked_call!(DisableCpuMemArena, self.raw)?;
+            call!(DisableCpuMemArena, self.raw)?;
         }
         Ok(self)
     }
@@ -189,21 +185,21 @@ impl SessionOptions {
     pub fn set_session_log_id(&mut self, log_id: &str) -> Result<&mut Self> {
         let log_id = CString::new(log_id)?;
         unsafe {
-            checked_call!(SetSessionLogId, self.raw, log_id.as_ptr())?;
+            call!(SetSessionLogId, self.raw, log_id.as_ptr())?;
         }
         Ok(self)
     }
 
     pub fn set_session_log_verbosity_level(&mut self, verbosity_level: i32) -> Result<&mut Self> {
         unsafe {
-            checked_call!(SetSessionLogVerbosityLevel, self.raw, verbosity_level)?;
+            call!(SetSessionLogVerbosityLevel, self.raw, verbosity_level)?;
         }
         Ok(self)
     }
 
     pub fn set_session_log_severity_level(&mut self, severity_level: i32) -> Result<&mut Self> {
         unsafe {
-            checked_call!(SetSessionLogSeverityLevel, self.raw, severity_level)?;
+            call!(SetSessionLogSeverityLevel, self.raw, severity_level)?;
         }
         Ok(self)
     }
@@ -213,7 +209,7 @@ impl SessionOptions {
         graph_optimization_level: GraphOptimizationLevel,
     ) -> Result<&mut Self> {
         unsafe {
-            checked_call!(
+            call!(
                 SetSessionGraphOptimizationLevel,
                 self.raw,
                 graph_optimization_level
@@ -224,14 +220,14 @@ impl SessionOptions {
 
     pub fn set_intra_op_num_threads(&mut self, intra_op_num_threads: i32) -> Result<&mut Self> {
         unsafe {
-            checked_call!(SetIntraOpNumThreads, self.raw, intra_op_num_threads)?;
+            call!(SetIntraOpNumThreads, self.raw, intra_op_num_threads)?;
         }
         Ok(self)
     }
 
     pub fn set_inter_op_num_threads(&mut self, inter_op_num_threads: i32) -> Result<&mut Self> {
         unsafe {
-            checked_call!(SetInterOpNumThreads, self.raw, inter_op_num_threads)?;
+            call!(SetInterOpNumThreads, self.raw, inter_op_num_threads)?;
         }
         Ok(self)
     }
@@ -239,7 +235,7 @@ impl SessionOptions {
 
 impl Clone for SessionOptions {
     fn clone(&self) -> Self {
-        let raw = ptr_call!(CloneSessionOptions, self.raw).expect("Session::clone");
+        let raw = call!(@ptr @expect CloneSessionOptions, self.raw);
         SessionOptions { raw }
     }
 }
@@ -247,31 +243,31 @@ impl Clone for SessionOptions {
 impl Session {
     pub fn new(env: &Env, model_path: &str, options: &SessionOptions) -> Result<Self> {
         let model_path = CString::new(model_path)?;
-        let raw = ptr_call!(CreateSession, env.raw, model_path.as_ptr(), options.raw)?;
+        let raw = call!(@ptr CreateSession, env.raw, model_path.as_ptr(), options.raw)?;
         Ok(Session { raw })
     }
 
     pub fn input_count(&self) -> usize {
-        expected_call!(SessionGetInputCount, self.raw) as usize
+        call!(@int @expect SessionGetInputCount, self.raw) as usize
     }
 
     pub fn output_count(&self) -> usize {
-        expected_call!(SessionGetOutputCount, self.raw) as usize
+        call!(@int @expect SessionGetOutputCount, self.raw) as usize
     }
 
     pub fn overridable_initializer_count(&self) -> usize {
-        expected_call!(SessionGetOverridableInitializerCount, self.raw) as usize
+        call!(@int @expect SessionGetOverridableInitializerCount, self.raw) as usize
     }
 
     pub fn input_name(&self, ix: u64) -> Result<OrtString> {
         let alloc = Allocator::default();
-        let raw = ptr_call!(SessionGetInputName, self.raw, ix, alloc.as_ptr())?;
+        let raw = call!(@ptr SessionGetInputName, self.raw, ix, alloc.as_ptr())?;
         Ok(OrtString { raw })
     }
 
     pub fn output_name(&self, ix: u64) -> Result<OrtString> {
         let alloc = Allocator::default();
-        let raw = ptr_call!(SessionGetOutputName, self.raw, ix, alloc.as_ptr())?;
+        let raw = call!(@ptr SessionGetOutputName, self.raw, ix, alloc.as_ptr())?;
         Ok(OrtString { raw })
     }
 
@@ -287,7 +283,7 @@ impl Session {
         assert_eq!(output_names.len(), outputs.len());
 
         unsafe {
-            checked_call!(
+            call!(
                 Run,
                 self.raw,
                 options.raw,
@@ -313,7 +309,7 @@ impl Session {
         let output_size = output_names.len() as u64;
         let mut raw_outputs: *mut sys::Value = ptr::null_mut();
         unsafe {
-            checked_call!(
+            call!(
                 Run,
                 self.raw,
                 options.raw,
@@ -359,7 +355,7 @@ impl MemoryInfo {
     pub fn cpu_memory_info(alloc_type: AllocatorType, mem_type: MemType) -> Result<Self> {
         let mut raw = ptr::null_mut();
         unsafe {
-            checked_call!(CreateCpuMemoryInfo, alloc_type, mem_type, &mut raw)?;
+            call!(CreateCpuMemoryInfo, alloc_type, mem_type, &mut raw)?;
         }
 
         Ok(MemoryInfo { raw })
@@ -378,7 +374,7 @@ lazy_static::lazy_static! {
 
 impl RunOptions {
     pub fn new() -> RunOptions {
-        let raw = ptr_call!(CreateRunOptions).expect("RunOptions::new");
+        let raw = call!(@ptr @expect CreateRunOptions);
         RunOptions { raw }
     }
 }
