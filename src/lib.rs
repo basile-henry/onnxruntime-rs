@@ -118,6 +118,28 @@ impl Env {
     }
 }
 
+macro_rules! option {
+    ($(#[$outer:meta])* $ort_name:ident => $name:ident) => {
+        $(#[$outer])*
+        pub fn $name(&mut self) -> Result<&mut Self> {
+            unsafe {
+                call!($ort_name, self.raw)?;
+            }
+            Ok(self)
+        }
+    };
+
+    ($(#[$outer:meta])* $ort_name:ident => $name:ident($arg_name:ident: $arg_ty:ty $(| .$fn:ident())?)) => {
+        $(#[$outer])*
+        pub fn $name(&mut self, $arg_name: $arg_ty) -> Result<&mut Self> {
+            unsafe {
+                call!($ort_name, self.raw, $arg_name$(.$fn())?)?;
+            }
+            Ok(self)
+        }
+    };
+}
+
 impl SessionOptions {
     pub fn new() -> Result<Self> {
         let raw = call!(@ptr CreateSessionOptions)?;
@@ -147,40 +169,14 @@ impl SessionOptions {
         Ok(self)
     }
 
-    pub fn disable_profiling(&mut self) -> Result<&mut Self> {
-        unsafe {
-            call!(DisableProfiling, self.raw)?;
-        }
-        Ok(self)
-    }
-
-    pub fn enable_mem_pattern(&mut self) -> Result<&mut Self> {
-        unsafe {
-            call!(EnableMemPattern, self.raw)?;
-        }
-        Ok(self)
-    }
-
-    pub fn disable_mem_pattern(&mut self) -> Result<&mut Self> {
-        unsafe {
-            call!(DisableMemPattern, self.raw)?;
-        }
-        Ok(self)
-    }
-
-    pub fn enable_cpu_mem_arena(&mut self) -> Result<&mut Self> {
-        unsafe {
-            call!(EnableCpuMemArena, self.raw)?;
-        }
-        Ok(self)
-    }
-
-    pub fn disable_cpu_mem_arena(&mut self) -> Result<&mut Self> {
-        unsafe {
-            call!(DisableCpuMemArena, self.raw)?;
-        }
-        Ok(self)
-    }
+    option!(
+        /// Disables profiling.
+        DisableProfiling => disable_profiling
+    );
+    option!(EnableMemPattern => enable_mem_pattern);
+    option!(DisableMemPattern => disable_mem_pattern);
+    option!(EnableCpuMemArena => enable_cpu_mem_arena);
+    option!(DisableCpuMemArena => disable_cpu_mem_arena);
 
     pub fn set_session_log_id(&mut self, log_id: &str) -> Result<&mut Self> {
         let log_id = CString::new(log_id)?;
@@ -190,47 +186,13 @@ impl SessionOptions {
         Ok(self)
     }
 
-    pub fn set_session_log_verbosity_level(&mut self, verbosity_level: i32) -> Result<&mut Self> {
-        unsafe {
-            call!(SetSessionLogVerbosityLevel, self.raw, verbosity_level)?;
-        }
-        Ok(self)
-    }
-
-    pub fn set_session_log_severity_level(&mut self, severity_level: i32) -> Result<&mut Self> {
-        unsafe {
-            call!(SetSessionLogSeverityLevel, self.raw, severity_level)?;
-        }
-        Ok(self)
-    }
-
-    pub fn set_session_graph_optimization_level(
-        &mut self,
-        graph_optimization_level: GraphOptimizationLevel,
-    ) -> Result<&mut Self> {
-        unsafe {
-            call!(
-                SetSessionGraphOptimizationLevel,
-                self.raw,
-                graph_optimization_level
-            )?;
-        }
-        Ok(self)
-    }
-
-    pub fn set_intra_op_num_threads(&mut self, intra_op_num_threads: i32) -> Result<&mut Self> {
-        unsafe {
-            call!(SetIntraOpNumThreads, self.raw, intra_op_num_threads)?;
-        }
-        Ok(self)
-    }
-
-    pub fn set_inter_op_num_threads(&mut self, inter_op_num_threads: i32) -> Result<&mut Self> {
-        unsafe {
-            call!(SetInterOpNumThreads, self.raw, inter_op_num_threads)?;
-        }
-        Ok(self)
-    }
+    option!(EnableProfiling => en_prof(path: &CStr | .as_ptr()));
+    option!(SetSessionLogVerbosityLevel => set_session_log_verbosity_level(verbosity_level: i32));
+    option!(SetSessionLogSeverityLevel => set_session_log_severity_level(severity_level: i32));
+    option!(SetSessionGraphOptimizationLevel =>
+        set_session_graph_optimization_level(graph_optimization_level: GraphOptimizationLevel));
+    option!(SetIntraOpNumThreads => set_intra_op_num_threads(intra_op_num_threads: i32));
+    option!(SetInterOpNumThreads => set_inter_op_num_threads(intra_op_num_threads: i32));
 }
 
 impl Clone for SessionOptions {
