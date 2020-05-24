@@ -127,6 +127,16 @@ macro_rules! option {
         }
     };
 
+    // treat &str specially becuase we make a cstring version
+    ($(#[$outer:meta])* $ort_name:ident => $name:ident($arg_name:ident: &str)) => {
+        $(#[$outer])*
+        pub fn $name(&mut self, $arg_name: &str) -> Result<&mut Self> {
+            let cstr = CString::new($arg_name)?;
+            call!(@unsafe $ort_name, self.raw, cstr.as_ptr())?;
+            Ok(self)
+        }
+    };
+
     ($(#[$outer:meta])* $ort_name:ident => $name:ident($arg_name:ident: $arg_ty:ty $(| .$fn:ident())?)) => {
         $(#[$outer])*
         pub fn $name(&mut self, $arg_name: $arg_ty) -> Result<&mut Self> {
@@ -142,25 +152,8 @@ impl SessionOptions {
         Ok(SessionOptions { raw })
     }
 
-    pub fn set_optimized_model_filepath(
-        &mut self,
-        optimized_model_filepath: &str,
-    ) -> Result<&mut Self> {
-        let optimized_model_filepath = CString::new(optimized_model_filepath)?;
-        call!(@unsafe
-            SetOptimizedModelFilePath,
-            self.raw,
-            optimized_model_filepath.as_ptr()
-        )?;
-        Ok(self)
-    }
-
-    pub fn enable_profiling(&mut self, profile_file_prefix: &str) -> Result<&mut Self> {
-        let profile_file_prefix = CString::new(profile_file_prefix)?;
-        call!(@unsafe EnableProfiling, self.raw, profile_file_prefix.as_ptr())?;
-        Ok(self)
-    }
-
+    option!(SetOptimizedModelFilePath => set_optimized_model_filepath(optimized_model_filepath: &str));
+    option!(EnableProfiling => enable_profiling(profile_file_prefix: &str));
     option!(
         /// Disables profiling.
         DisableProfiling => disable_profiling
@@ -169,13 +162,7 @@ impl SessionOptions {
     option!(DisableMemPattern => disable_mem_pattern);
     option!(EnableCpuMemArena => enable_cpu_mem_arena);
     option!(DisableCpuMemArena => disable_cpu_mem_arena);
-
-    pub fn set_session_log_id(&mut self, log_id: &str) -> Result<&mut Self> {
-        let log_id = CString::new(log_id)?;
-        call!(@unsafe SetSessionLogId, self.raw, log_id.as_ptr())?;
-        Ok(self)
-    }
-
+    option!(SetSessionLogId => set_session_log_id(log_id: &str));
     option!(EnableProfiling => en_prof(path: &CStr | .as_ptr()));
     option!(SetSessionLogVerbosityLevel => set_session_log_verbosity_level(verbosity_level: i32));
     option!(SetSessionLogSeverityLevel => set_session_log_severity_level(severity_level: i32));
