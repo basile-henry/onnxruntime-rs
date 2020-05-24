@@ -71,13 +71,40 @@ impl Value {
     }
 }
 
-impl TensorTypeAndShapeInfo {
+/// Just like `Val` for `Value`, we have `TensorInfo` for `TensorTypeAndShapeInfo`, an unowned
+/// reference.
+pub struct TensorInfo {
+    raw: sys::TensorTypeAndShapeInfo,
+}
+
+impl Deref for TensorTypeAndShapeInfo {
+    type Target = TensorInfo;
+    fn deref(&self) -> &TensorInfo {
+        unsafe { TensorInfo::from_raw(self.raw) }
+    }
+}
+
+impl DerefMut for TensorTypeAndShapeInfo {
+    fn deref_mut(&mut self) -> &mut TensorInfo {
+        unsafe { &mut *(self.raw as *mut TensorInfo) }
+    }
+}
+
+impl TensorInfo {
+    pub unsafe fn from_raw<'a>(raw: *const sys::TensorTypeAndShapeInfo) -> &'a TensorInfo {
+        &*(raw as *const TensorInfo)
+    }
+
+    pub fn raw(&self) -> *mut sys::TensorTypeAndShapeInfo {
+        &self.raw as *const sys::TensorTypeAndShapeInfo as *mut _
+    }
+
     pub fn dims(&self) -> Vec<i64> {
-        let num_dims = call!(@unsafe @int @expect GetDimensionsCount, self.raw);
+        let num_dims = call!(@unsafe @int @expect GetDimensionsCount, self.raw());
         let mut dims = vec![0; num_dims as usize];
         call!(@unsafe @expect
             GetDimensions,
-            self.raw,
+            self.raw(),
             dims.as_mut_ptr(),
             dims.len() as u64
         );
@@ -85,7 +112,7 @@ impl TensorTypeAndShapeInfo {
     }
 
     pub unsafe fn set_dims(&mut self, dims: &[i64]) {
-        call!(@expect SetDimensions, self.raw, dims.as_ptr(), dims.len() as u64)
+        call!(@expect SetDimensions, self.raw(), dims.as_ptr(), dims.len() as u64)
     }
 
     /// Return the number of elements specified by the tensor shape. Return a negative value if
@@ -98,12 +125,12 @@ impl TensorTypeAndShapeInfo {
     /// [-1,3,4] -> -1
     /// ```
     pub fn elem_count(&self) -> isize {
-        call!(@unsafe @int @expect GetTensorShapeElementCount, self.raw) as isize
+        call!(@unsafe @int @expect GetTensorShapeElementCount, self.raw()) as isize
     }
 
     pub fn elem_type(&self) -> OnnxTensorElementDataType {
         call!(@unsafe @arg OnnxTensorElementDataType::Undefined; @expect
-              GetTensorElementType, self.raw)
+              GetTensorElementType, self.raw())
     }
 
     // no documentation for this?

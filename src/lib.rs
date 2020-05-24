@@ -17,7 +17,7 @@ pub use allocator::Allocator;
 
 // note that this be come after the macro definitions (in api)
 mod value;
-pub use value::{OrtType, Tensor, Val};
+pub use value::{OrtType, Tensor, TensorInfo, Val};
 
 macro_rules! ort_type {
     ($t:ident, $r:ident) => {
@@ -168,12 +168,27 @@ impl SessionOptions {
     fn disable_cpu_mem_arena() { DisableCpuMemArena };
     fn set_session_log_id(log_id: &str) { SetSessionLogId };
     fn en_prof(path: &CStr | .as_ptr()) { EnableProfiling };
-    fn set_session_log_verbosity_level(verbosity_level: i32) {SetSessionLogVerbosityLevel };
-    fn set_session_log_severity_level(severity_level: i32) {SetSessionLogSeverityLevel };
+    fn set_session_log_verbosity_level(verbosity_level: i32) { SetSessionLogVerbosityLevel };
+    fn set_session_log_severity_level(severity_level: i32) { SetSessionLogSeverityLevel };
     fn set_session_graph_optimization_level(graph_optimization_level: GraphOptimizationLevel)
         { SetSessionGraphOptimizationLevel };
-    fn set_intra_op_num_threads(intra_op_num_threads: i32) {SetIntraOpNumThreads };
-    fn set_inter_op_num_threads(intra_op_num_threads: i32) {SetInterOpNumThreads };
+    fn set_intra_op_num_threads(intra_op_num_threads: i32) { SetIntraOpNumThreads };
+    fn set_inter_op_num_threads(intra_op_num_threads: i32) { SetInterOpNumThreads };
+    }
+}
+
+impl TypeInfo {
+    pub fn onnx_type(&self) -> OnnxType {
+        call!(@unsafe @arg OnnxType::Unknown; @expect GetOnnxTypeFromTypeInfo, self.raw)
+    }
+
+    pub fn tensor_info(&self) -> Option<&TensorInfo> {
+        let raw = call!(@unsafe @arg ptr::null(); @expect CastTypeInfoToTensorInfo, self.raw);
+        if raw.is_null() {
+            None
+        } else {
+            Some(unsafe { TensorInfo::from_raw(raw) })
+        }
     }
 }
 
@@ -213,6 +228,21 @@ impl Session {
         let alloc = Allocator::default();
         let raw = call!(@unsafe @ptr SessionGetOutputName, self.raw, ix, alloc.as_ptr())?;
         Ok(OrtString { raw })
+    }
+
+    pub fn input_type_info(&self, ix: u64) -> Result<TypeInfo> {
+        let raw = call!(@unsafe @ptr SessionGetInputTypeInfo, self.raw, ix)?;
+        Ok(TypeInfo { raw })
+    }
+
+    pub fn output_type_info(&self, ix: u64) -> Result<TypeInfo> {
+        let raw = call!(@unsafe @ptr SessionGetOutputTypeInfo, self.raw, ix)?;
+        Ok(TypeInfo { raw })
+    }
+
+    pub fn overridable_initializer_type_info(&self, ix: u64) -> Result<TypeInfo> {
+        let raw = call!(@unsafe @ptr SessionGetOverridableInitializerTypeInfo, self.raw, ix)?;
+        Ok(TypeInfo { raw })
     }
 
     pub fn run_mut(
