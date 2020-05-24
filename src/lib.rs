@@ -320,26 +320,12 @@ impl Session {
     pub fn run_raw(
         &self,
         options: &RunOptions,
-        input_names: &[&str],
-        inputs: &[&Value],
-        output_names: &[&str],
+        input_names: &[&CStr],
+        inputs: &[&Val],
+        output_names: &[&CStr],
     ) -> Result<Vec<Value>> {
         assert_eq!(input_names.len(), inputs.len());
 
-        let input_names = input_names
-            .iter()
-            .map(|n| CString::new(*n))
-            .collect::<std::result::Result<Vec<_>, ffi::NulError>>()?;
-        let input_names_ptrs = input_names.iter().map(|n| n.as_ptr()).collect::<Vec<_>>();
-        let output_names = output_names
-            .iter()
-            .map(|n| CString::new(*n))
-            .collect::<std::result::Result<Vec<_>, ffi::NulError>>()?;
-        let output_names_ptrs = output_names.iter().map(|n| n.as_ptr()).collect::<Vec<_>>();
-        let inputs = inputs
-            .iter()
-            .map(|v| v.raw as *const sys::Value)
-            .collect::<Vec<_>>();
         let output_size = output_names.len() as u64;
         let mut raw_outputs: *mut sys::Value = ptr::null_mut();
         unsafe {
@@ -347,10 +333,10 @@ impl Session {
                 Run,
                 self.raw,
                 options.raw,
-                input_names_ptrs.as_ptr(),
-                inputs.as_ptr(),
+                input_names.as_ptr() as *const *const c_char,
+                inputs.as_ptr() as *const *const sys::Value,
                 inputs.len() as u64,
-                output_names_ptrs.as_ptr(),
+                output_names.as_ptr() as *const *const c_char,
                 output_size,
                 &mut raw_outputs
             )?;
@@ -511,16 +497,12 @@ mod tests {
 
         let ro = RunOptions::new();
 
-        let input_names = vec![in_name.to_str().unwrap()];
-        let output_names = vec![out_name.to_str().unwrap()];
-
         let input_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let input_shape = vec![3, 2];
-
         let input_tensor = Tensor::new(input_shape, input_data)?;
 
         // immutable version
-        let output = session.run_raw(&ro, &input_names, &[input_tensor.value()], &output_names)?;
+        let output = session.run_raw(&ro, &[&in_name], &[input_tensor.value()], &[&out_name])?;
 
         let output_value = output.into_iter().next().unwrap();
         let output_tensor = output_value.as_tensor::<f32>().ok().expect("as_tensor");
@@ -531,10 +513,7 @@ mod tests {
         );
 
         // mutable version
-        let output_data: Vec<f32> = vec![0.0; 3];
-        let output_shape = vec![3, 1];
-
-        let mut output_tensor = Tensor::new(output_shape, output_data)?;
+        let mut output_tensor = Tensor::<f32>::init(vec![3,1], 0.0)?;
 
         run!(session(&ro) =>
             in_name: &input_tensor,

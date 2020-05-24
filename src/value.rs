@@ -211,6 +211,14 @@ impl<T: OrtType> Tensor<T> {
             shape,
         })
     }
+
+    pub fn init(shape: Vec<i64>, value: T) -> Result<Tensor<T>>
+        where T: Copy
+    {
+        let len = shape.iter().product::<i64>();
+        Self::new(shape, vec![value; len as usize])
+    }
+
     pub fn dims(&self) -> &[i64] {
         &self.shape
     }
