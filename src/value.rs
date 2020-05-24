@@ -1,5 +1,5 @@
-use crate::*;
 use std::ops::{Deref, DerefMut};
+use crate::*;
 
 /// This is what `CStr` is to `CString` for `Value`. The motivating use case for this is that
 /// `&[&Val]` can be converted to `*const sys::Value` at zero cost.
@@ -7,16 +7,21 @@ pub struct Val {
     raw: sys::Value,
 }
 
+
 impl Deref for Value {
     type Target = Val;
     fn deref(&self) -> &Val {
-        unsafe { &*(self.raw as *const sys::Value as *const Val) }
+        unsafe {
+            &*(self.raw as *const sys::Value as *const Val)
+        }
     }
 }
 
 impl DerefMut for Value {
     fn deref_mut(&mut self) -> &mut Val {
-        unsafe { &mut *(self.raw as *mut Val) }
+        unsafe {
+            &mut *(self.raw as *mut Val)
+        }
     }
 }
 
@@ -36,8 +41,7 @@ impl Val {
     pub fn tensor_data(&self) -> *mut c_void {
         let mut data = ptr::null_mut();
         unsafe {
-            checked_call!(GetTensorMutableData, self.raw(), &mut data)
-                .expect("GetTensorMutableData");
+            checked_call!(GetTensorMutableData, self.raw(), &mut data).expect("GetTensorMutableData");
         }
         data
     }
@@ -188,12 +192,13 @@ ort_data_type!(Int64, i64);
 ort_data_type!(Bool, bool);
 
 impl<T: OrtType> Tensor<T> {
-    pub fn new(mem_info: MemoryInfo, shape: Vec<i64>, mut vec: Vec<T>) -> Result<Tensor<T>> {
+    /// Create a new tensor with the given shape and data.
+    pub fn new(shape: Vec<i64>, mut vec: Vec<T>) -> Result<Tensor<T>> {
         let mut raw = ptr::null_mut();
         unsafe {
             checked_call!(
                 CreateTensorWithDataAsOrtValue,
-                mem_info.raw,
+                CPU_ARENA.raw,
                 vec.as_mut_ptr() as *mut _,
                 (vec.len() * std::mem::size_of::<T>()) as u64,
                 shape.as_ptr(),
@@ -294,20 +299,4 @@ impl<T> std::convert::AsMut<Val> for Tensor<T> {
     fn as_mut(&mut self) -> &mut Val {
         &mut self.val
     }
-}
-
-#[macro_export]
-/// A macro which expands a list of values or tensors into a vec of value
-/// references. This is useful because you cannot have a vector of tensors of
-/// different types.
-macro_rules! values {
-    ( $( $x:expr ),* ) => {
-        {
-            let mut temp_vec = Vec::new();
-            $(
-                temp_vec.push($x.as_ref::<Value>());
-            )*
-            temp_vec
-        }
-    };
 }

@@ -401,6 +401,19 @@ impl MemoryInfo {
     }
 }
 
+unsafe impl Sync for MemoryInfo {}
+unsafe impl Send for MemoryInfo {}
+
+lazy_static::lazy_static! {
+    /// There should only be one ORT environment existing at any given time.
+    /// This test environment is intended to be used by all the tests that
+    /// need an ORT environment instead of each creating their own.
+    pub static ref CPU_ARENA: MemoryInfo = {
+        MemoryInfo::cpu_memory_info(AllocatorType::ArenaAllocator, MemType::Cpu).expect("CPU_ARENA")
+    };
+}
+
+
 impl RunOptions {
     pub fn new() -> RunOptions {
         let mut raw = ptr::null_mut();
@@ -506,15 +519,13 @@ mod tests {
 
         let ro = RunOptions::new();
 
-        let mem_info = MemoryInfo::cpu_memory_info(AllocatorType::ArenaAllocator, MemType::Cpu)?;
-
         let input_names = vec![in_name.to_str().unwrap()];
         let output_names = vec![out_name.to_str().unwrap()];
 
         let input_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let input_shape = vec![3, 2];
 
-        let input_tensor = Tensor::new(mem_info, input_shape, input_data)?;
+        let input_tensor = Tensor::new(input_shape, input_data)?;
 
         // immutable version
         let output = session.run_raw(&ro, &input_names, &[input_tensor.value()], &output_names)?;
@@ -528,11 +539,10 @@ mod tests {
         );
 
         // mutable version
-        let mem_info = MemoryInfo::cpu_memory_info(AllocatorType::ArenaAllocator, MemType::Cpu)?;
         let output_data: Vec<f32> = vec![0.0; 3];
         let output_shape = vec![3, 1];
 
-        let mut output_tensor = Tensor::new(mem_info, output_shape, output_data)?;
+        let mut output_tensor = Tensor::new(output_shape, output_data)?;
 
         run!(session(&ro) =>
             in_name: &input_tensor,
