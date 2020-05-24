@@ -1,4 +1,6 @@
+use std::ffi::c_void;
 use std::ops::{Deref, DerefMut};
+
 use crate::*;
 
 /// This is what `CStr` is to `CString` for `Value`. The motivating use case for this is that
@@ -7,21 +9,16 @@ pub struct Val {
     raw: sys::Value,
 }
 
-
 impl Deref for Value {
     type Target = Val;
     fn deref(&self) -> &Val {
-        unsafe {
-            &*(self.raw as *const sys::Value as *const Val)
-        }
+        unsafe { &*(self.raw as *const sys::Value as *const Val) }
     }
 }
 
 impl DerefMut for Value {
     fn deref_mut(&mut self) -> &mut Val {
-        unsafe {
-            &mut *(self.raw as *mut Val)
-        }
+        unsafe { &mut *(self.raw as *mut Val) }
     }
 }
 
@@ -41,7 +38,8 @@ impl Val {
     pub fn tensor_data(&self) -> *mut c_void {
         let mut data = ptr::null_mut();
         unsafe {
-            checked_call!(GetTensorMutableData, self.raw(), &mut data).expect("GetTensorMutableData");
+            checked_call!(GetTensorMutableData, self.raw(), &mut data)
+                .expect("GetTensorMutableData");
         }
         data
     }
@@ -118,10 +116,12 @@ impl TensorTypeAndShapeInfo {
     /// Return the number of elements specified by the tensor shape. Return a negative value if
     /// unknown (i.e., any dimension is negative.)
     ///
+    /// ```ignore
     /// [] -> 1
     /// [1,3,4] -> 12
     /// [2,0,4] -> 0
     /// [-1,3,4] -> -1
+    /// ```
     pub fn elem_count(&self) -> isize {
         let mut count = 0;
         unsafe {
@@ -154,8 +154,6 @@ impl TensorTypeAndShapeInfo {
     // }
 }
 
-use std::ffi::c_void;
-
 pub struct Tensor<T> {
     /// If this is none then ort owns the data.
     owned: Option<Vec<T>>,
@@ -163,13 +161,13 @@ pub struct Tensor<T> {
     shape: Vec<i64>,
 }
 
-pub trait OrtType: Sized {
+pub unsafe trait OrtType: Sized {
     fn onnx_type() -> OnnxTensorElementDataType;
 }
 
 macro_rules! ort_data_type {
     ($t:ident, $ty:ty) => {
-        impl OrtType for $ty {
+        unsafe impl OrtType for $ty {
             fn onnx_type() -> OnnxTensorElementDataType {
                 use OnnxTensorElementDataType::*;
                 $t

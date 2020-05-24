@@ -413,7 +413,6 @@ lazy_static::lazy_static! {
     };
 }
 
-
 impl RunOptions {
     pub fn new() -> RunOptions {
         let mut raw = ptr::null_mut();
