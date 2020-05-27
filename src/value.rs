@@ -99,6 +99,7 @@ impl TensorInfo {
         &self.raw as *const sys::TensorTypeAndShapeInfo as *mut _
     }
 
+    /// Get the number of dimentions in this tensor.
     pub fn num_dims(&self) -> usize {
         call!(@unsafe @int @expect GetDimensionsCount, self.raw()) as usize
     }
@@ -121,7 +122,7 @@ impl TensorInfo {
     /// Return the number of elements specified by the tensor shape. Return a negative value if
     /// unknown (i.e., any dimension is negative.)
     ///
-    /// ```ignore
+    /// ```text
     /// [] -> 1
     /// [1,3,4] -> 12
     /// [2,0,4] -> 0
@@ -131,26 +132,47 @@ impl TensorInfo {
         call!(@unsafe @int @expect GetTensorShapeElementCount, self.raw()) as isize
     }
 
+    /// Get the data type for the elements of this tensor.
     pub fn elem_type(&self) -> OnnxTensorElementDataType {
         call!(@unsafe @arg OnnxTensorElementDataType::Undefined; @expect
               GetTensorElementType, self.raw())
     }
 
-    pub fn symbolic_dims(&self) -> impl Iterator<Item = &CStr> {
-        let mut dims = vec![ptr::null(); self.num_dims() as usize];
+    /// Iterate over the names of the symbolic dimentions.
+    pub fn symbolic_dims(&self) -> impl ExactSizeIterator<Item = SymbolicDim<&CStr>> {
+        let fixeds = self.dims();
+        let mut symbolics = vec![ptr::null(); self.num_dims() as usize];
         call!(@unsafe @expect
             GetSymbolicDimensions,
             self.raw(),
-            dims.as_mut_ptr(),
-            dims.len() as u64
+            symbolics.as_mut_ptr(),
+            symbolics.len() as u64
         );
-        dims.into_iter().map(|ptr| {
+        fixeds.into_iter().zip(symbolics).map(|(fixed, ptr)| {
             if ptr.is_null() {
-                Default::default()
+                assert!(fixed >= 0);
+                SymbolicDim::Fixed(fixed as usize)
             } else {
-                unsafe { CStr::from_ptr(ptr) }
+                assert!(fixed == -1);
+                SymbolicDim::Symbolic(unsafe { CStr::from_ptr(ptr) })
             }
         })
+    }
+}
+
+#[derive(Debug)]
+pub enum SymbolicDim<T> {
+    Symbolic(T),
+    Fixed(usize),
+}
+
+impl<T> SymbolicDim<T> {
+    pub fn map<F: FnOnce(T) -> U, U>(self, f: F) -> SymbolicDim<U> {
+        use SymbolicDim::*;
+        match self {
+            Symbolic(a) => Symbolic(f(a)),
+            Fixed(u) => Fixed(u),
+        }
     }
 }
 
