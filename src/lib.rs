@@ -260,10 +260,10 @@ impl Session {
             Run,
             self.raw,
             options.raw,
-            input_names.as_ptr() as *const *const c_char,
+            cstr_ptrs(input_names).as_ptr(),
             inputs.as_ptr() as *const *const sys::Value,
             inputs.len() as u64,
-            output_names.as_ptr() as *const *const c_char,
+            cstr_ptrs(output_names).as_ptr(),
             output_names.len() as u64,
             outputs.as_mut_ptr() as *mut *mut sys::Value
         )
@@ -284,10 +284,10 @@ impl Session {
             Run,
             self.raw,
             options.raw,
-            input_names.as_ptr() as *const *const c_char,
+            cstr_ptrs(input_names).as_ptr(),
             inputs.as_ptr() as *const *const sys::Value,
             inputs.len() as u64,
-            output_names.as_ptr() as *const *const c_char,
+            cstr_ptrs(output_names).as_ptr(),
             output_size,
             &mut raw_outputs
         )?;
@@ -301,6 +301,11 @@ impl Session {
             )
         }
     }
+}
+
+/// Note that this can't be replaced by a cast because internally `CStr` is represented by a slice.
+fn cstr_ptrs(slice: &[&CStr]) -> Vec<*const c_char> {
+    slice.iter().map(|cstr| cstr.as_ptr()).collect()
 }
 
 /// An ort string with the default allocator
