@@ -1,6 +1,7 @@
 use std::ffi::{self, CStr, CString};
 use std::os::raw::c_char;
 use std::ptr;
+use std::cell::RefCell;
 
 pub mod sys;
 // Re-export enums
@@ -199,6 +200,144 @@ impl Clone for SessionOptions {
     }
 }
 
+#[derive(Clone, Copy)]
+enum ArgType {
+    Input,
+    Output,
+    Initialiser,
+}
+
+/// Iterator over some of the arguments of a session. Either `inputs`, `outputs` or
+/// `overridable_initializers`.
+pub struct Arguments<'a> {
+    session: &'a Session,
+    ix: usize,
+    num_args: usize,
+    arg_type: ArgType,
+}
+
+impl<'a> Iterator for Arguments<'a> {
+    type Item = ArgumentInfo<'a>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.ix == self.num_args {
+            None
+        } else {
+            let info = self.session.argument(self.ix, self.arg_type);
+            self.ix += 1;
+            Some(info)
+        }
+    }
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.ix = std::cmp::min(self.num_args, self.ix + n);
+        self.next()
+    }
+}
+
+impl<'a> ExactSizeIterator for Arguments<'a> {
+    fn len(&self) -> usize {
+        self.ix - self.num_args
+    }
+}
+
+/// Infomation about a particular argument.
+pub struct ArgumentInfo<'a> {
+    session: &'a Session,
+    ix: usize,
+    arg_type: ArgType,
+    info: RefCell<Option<TypeInfo>>,
+}
+
+impl<'a> ArgumentInfo<'a> {
+    /// The name of this argument
+    pub fn name(&self) -> OrtString {
+        let alloc = Allocator::default();
+        let sess = self.session.raw;
+        let ix = self.ix as u64;
+        let raw = match self.arg_type {
+            ArgType::Input => {
+                call!(@unsafe @ptr @expect SessionGetInputName, sess, ix, alloc.as_ptr())
+            }
+            ArgType::Output => {
+                call!(@unsafe @ptr @expect SessionGetOutputName, sess, ix, alloc.as_ptr())
+            }
+            ArgType::Initialiser => {
+                call!(@unsafe @ptr @expect SessionGetOverridableInitializerName, sess, ix, alloc.as_ptr())
+            }
+        };
+        OrtString { raw }
+    }
+
+    /// The index of this argument
+    pub fn index(&self) -> usize {
+        self.ix
+    }
+
+    /// lazy `TypeInfo` instantiation.
+    unsafe fn type_info(&self) -> &TypeInfo {
+        match self.info.try_borrow_unguarded().expect("arg_info") {
+            Some(info) => info,
+            None => {
+                let sess = self.session.raw;
+                let ix = self.ix as u64;
+                let raw = match self.arg_type {
+                    ArgType::Input => call!(@ptr @expect SessionGetInputTypeInfo, sess, ix),
+                    ArgType::Output => call!(@ptr @expect SessionGetOutputTypeInfo, sess, ix),
+                    ArgType::Initialiser => {
+                        call!(@ptr @expect SessionGetOverridableInitializerTypeInfo, sess, ix)
+                    }
+                };
+                let type_info = TypeInfo { raw };
+                self.info.replace(Some(type_info));
+                self.info
+                    .try_borrow_unguarded()
+                    .expect("arg_info")
+                    .as_ref()
+                    .unwrap()
+            }
+        }
+    }
+
+    /// The type of this argument.
+    pub fn onnx_type(&self) -> OnnxType {
+        unsafe { self.type_info().onnx_type() }
+    }
+
+    /// `true` if this argument is a `Tensor` or a `Sparsetensor`.
+    pub fn is_tensor(&self) -> bool {
+        matches!(self.onnx_type(), OnnxType::Tensor | OnnxType::Sparsetensor)
+    }
+
+    /// Info about this tensor (like dimensions).
+    pub fn tensor_info(&self) -> Option<&TensorInfo> {
+        unsafe { self.type_info().tensor_info() }
+    }
+}
+
+macro_rules! args {
+    ($name:ident, $names:ident, $ty:ident) => {
+        args!($name, stringify!($name), $names, stringify!($names), concat!("session.", stringify!($names), "().len()"), $ty);
+    };
+    ($name:ident, $sname:expr, $names:ident, $snames:expr, $len:expr, $ty:ident) => {
+        /// Gets the
+        #[doc = $sname]
+        /// with the given index. Will error if the index is out of bounds. You can see the number of
+        #[doc = $snames]
+        /// by calling `
+        #[doc = $len]
+        /// `.
+        pub fn $name(&self, index: usize) -> ArgumentInfo {
+            self.argument(index, ArgType::$ty)
+        }
+
+        /// Gets an iterator over the
+        #[doc = $snames]
+        /// for this session.
+        pub fn $names(&self) -> Arguments {
+            self.arguments(ArgType::Input)
+        }
+    }
+}
+
 impl Session {
     pub fn new(env: &Env, model_path: &str, options: &SessionOptions) -> Result<Self> {
         let model_path = CString::new(model_path)?;
@@ -206,44 +345,41 @@ impl Session {
         Ok(Session { raw })
     }
 
-    pub fn input_count(&self) -> usize {
-        call!(@unsafe @int @expect SessionGetInputCount, self.raw) as usize
+    fn argument(&self, ix: usize, arg_type: ArgType) -> ArgumentInfo {
+        ArgumentInfo {
+            session: &self,
+            ix,
+            arg_type: arg_type,
+            info: RefCell::new(None),
+        }
     }
 
-    pub fn output_count(&self) -> usize {
-        call!(@unsafe @int @expect SessionGetOutputCount, self.raw) as usize
+    fn arguments(&self, arg_type: ArgType) -> Arguments {
+        Arguments {
+            session: self,
+            ix: 0,
+            num_args: self.arg_count(arg_type),
+            arg_type,
+        }
     }
 
-    pub fn overridable_initializer_count(&self) -> usize {
-        call!(@unsafe @int @expect SessionGetOverridableInitializerCount, self.raw) as usize
+    fn arg_count(&self, arg_type: ArgType) -> usize {
+        match arg_type {
+            ArgType::Input => call!(@unsafe @int @expect SessionGetInputCount, self.raw) as usize,
+            ArgType::Output => call!(@unsafe @int @expect SessionGetOutputCount, self.raw) as usize,
+            ArgType::Initialiser => {
+                call!(@unsafe @int @expect SessionGetOverridableInitializerCount, self.raw) as usize
+            }
+        }
     }
 
-    pub fn input_name(&self, ix: u64) -> Result<OrtString> {
-        let alloc = Allocator::default();
-        let raw = call!(@unsafe @ptr SessionGetInputName, self.raw, ix, alloc.as_ptr())?;
-        Ok(OrtString { raw })
-    }
-
-    pub fn output_name(&self, ix: u64) -> Result<OrtString> {
-        let alloc = Allocator::default();
-        let raw = call!(@unsafe @ptr SessionGetOutputName, self.raw, ix, alloc.as_ptr())?;
-        Ok(OrtString { raw })
-    }
-
-    pub fn input_type_info(&self, ix: u64) -> Result<TypeInfo> {
-        let raw = call!(@unsafe @ptr SessionGetInputTypeInfo, self.raw, ix)?;
-        Ok(TypeInfo { raw })
-    }
-
-    pub fn output_type_info(&self, ix: u64) -> Result<TypeInfo> {
-        let raw = call!(@unsafe @ptr SessionGetOutputTypeInfo, self.raw, ix)?;
-        Ok(TypeInfo { raw })
-    }
-
-    pub fn overridable_initializer_type_info(&self, ix: u64) -> Result<TypeInfo> {
-        let raw = call!(@unsafe @ptr SessionGetOverridableInitializerTypeInfo, self.raw, ix)?;
-        Ok(TypeInfo { raw })
-    }
+    args!(input, inputs, Input);
+    args!(output, outputs, Output);
+    args!(
+        overridable_initializer,
+        overridable_initializers,
+        Initialiser
+    );
 
     pub fn run_mut(
         &self,
@@ -477,8 +613,8 @@ mod tests {
 
         let model_path = "testdata/matmul_1.onnx";
         let session = Session::new(&env, model_path, &so)?;
-        let in_name = session.input_name(0)?;
-        let out_name = session.output_name(0)?;
+        let in_name = session.input(0).name();
+        let out_name = session.output(0).name();
 
         let ro = RunOptions::new();
 
@@ -500,10 +636,7 @@ mod tests {
         // mutable version
         let mut output_tensor = Tensor::<f32>::init(vec![3, 1], 0.0)?;
 
-        run!(session, &ro,
-            "X": &input_tensor,
-            "Y": &mut output_tensor,
-        )?;
+        run!(session, &ro, "X": &input_tensor, "Y": &mut output_tensor)?;
 
         assert_eq!(
             &output_tensor[..],
