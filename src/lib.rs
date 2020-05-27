@@ -401,7 +401,7 @@ macro_rules! run {
     }};
 
     ( @to_name $name:literal ) => {
-        CStr::from_bytes_with_nul(concat!($name, "\0").as_bytes()).unwrap()
+        ::std::ffi::CStr::from_bytes_with_nul(concat!($name, "\0").as_bytes()).unwrap()
     };
 
     // &reference means input
