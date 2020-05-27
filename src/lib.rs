@@ -383,7 +383,7 @@ macro_rules! unexpected {
 /// ```
 /// Trailing commas are required.
 macro_rules! run {
-    // finished with a trailing comma
+    // finished, call run_mut with the args
     ( @map $session:ident $ro:expr;
             [$($in_names:expr,)*] [$($in_vals:expr,)*]
             [$($out_names:expr,)*] [$($out_vals:expr,)*]) => {
@@ -396,28 +396,50 @@ macro_rules! run {
                 )
     };
 
-    // &mut reference means output
-    ( @map $session:ident $ro:expr;
-            [$($in_names:expr,)*] [$($in_vals:expr,)*]
-            [$($out_names:expr,)*] [$($out_vals:expr,)*]
-            $name:ident: &mut $val:expr, $($rest:tt)* ) => {
-        run!(@map $session $ro;
-                    [$($in_names,)*] [$($in_vals,)*]
-                    [$($out_names,)* $name.as_ref(),] [$($out_vals,)* $val.as_mut(),]
-                    $($rest)*
-        )
+    ( @to_name $name:ident ) => {{
+        $name.as_ref()
+    }};
+
+    ( @to_name $name:literal ) => {
+        CStr::from_bytes_with_nul(concat!($name, "\0").as_bytes()).unwrap()
     };
 
     // &reference means input
     ( @map $session:ident $ro:expr;
             [$($in_names:expr,)*] [$($in_vals:expr,)*]
             [$($out_names:expr,)*] [$($out_vals:expr,)*]
-        $name:ident: &$val:expr, $($rest:tt)* ) => {
+        $name:tt: &$val:expr, $($rest:tt)* ) => {
         run!(@map $session $ro;
-                    [$($in_names,)* $name.as_ref(),] [$($in_vals,)* $val.as_ref(),]
+                    [$($in_names,)* run!(@to_name $name),] [$($in_vals,)* $val.as_ref(),]
                     [$($out_names,)*] [$($out_vals,)*]
                     $($rest)*
         )
+    };
+
+    // &mut reference means output
+    ( @map $session:ident $ro:expr;
+            [$($in_names:expr,)*] [$($in_vals:expr,)*]
+            [$($out_names:expr,)*] [$($out_vals:expr,)*]
+            $name:tt: &mut $val:expr, $($rest:tt)* ) => {
+        run!(@map $session $ro;
+                    [$($in_names,)*] [$($in_vals,)*]
+                    [$($out_names,)* run!(@to_name $name),] [$($out_vals,)* $val.as_mut(),]
+                    $($rest)*
+        )
+    };
+
+    // handle no trailing comma (supper annoying, need & and &mut case)
+    ( @map $session:ident $ro:expr;
+            [$($in_names:expr,)*] [$($in_vals:expr,)*]
+            [$($out_names:expr,)*] [$($out_vals:expr,)*]
+            $name:tt: & $val:expr ) => {
+        run!(@map $session $ro; [$($in_names,)*] [$($in_vals,)*] [$($out_names,)*] [$($out_vals,)*] $name: &mut $val,)
+    };
+    ( @map $session:ident $ro:expr;
+            [$($in_names:expr,)*] [$($in_vals:expr,)*]
+            [$($out_names:expr,)*] [$($out_vals:expr,)*]
+            $name:tt: &mut $val:expr ) => {
+        run!(@map $session $ro; [$($in_names,)*] [$($in_vals,)*] [$($out_names,)*] [$($out_vals,)*] $name: &mut $val,)
     };
 
     // something didn't match for the io mapping (doing this prevents more permissive matches from
@@ -479,8 +501,8 @@ mod tests {
         let mut output_tensor = Tensor::<f32>::init(vec![3, 1], 0.0)?;
 
         run!(session(&ro) =>
-            in_name: &input_tensor,
-            out_name: &mut output_tensor,
+            "X": &input_tensor,
+            "Y": &mut output_tensor,
         )?;
 
         assert_eq!(
