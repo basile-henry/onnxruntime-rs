@@ -313,31 +313,6 @@ impl<'a> ArgumentInfo<'a> {
     }
 }
 
-macro_rules! args {
-    ($name:ident, $names:ident, $ty:ident) => {
-        args!($name, stringify!($name), $names, stringify!($names), concat!("session.", stringify!($names), "().len()"), $ty);
-    };
-    ($name:ident, $sname:expr, $names:ident, $snames:expr, $len:expr, $ty:ident) => {
-        /// Gets the
-        #[doc = $sname]
-        /// with the given index. Will error if the index is out of bounds. You can see the number of
-        #[doc = $snames]
-        /// by calling `
-        #[doc = $len]
-        /// `.
-        pub fn $name(&self, index: usize) -> ArgumentInfo {
-            self.argument(index, ArgType::$ty)
-        }
-
-        /// Gets an iterator over the
-        #[doc = $snames]
-        /// for this session.
-        pub fn $names(&self) -> Arguments {
-            self.arguments(ArgType::Input)
-        }
-    }
-}
-
 impl Session {
     pub fn new(env: &Env, model_path: &str, options: &SessionOptions) -> Result<Self> {
         let model_path = CString::new(model_path)?;
@@ -373,13 +348,35 @@ impl Session {
         }
     }
 
-    args!(input, inputs, Input);
-    args!(output, outputs, Output);
-    args!(
-        overridable_initializer,
-        overridable_initializers,
-        Initialiser
-    );
+    /// Gets the input with the given index. Will error if the index is out of bounds.
+    pub fn input(&self, ix: usize) -> ArgumentInfo {
+        self.argument(ix, ArgType::Input)
+    }
+
+    /// Gets the output with the given index. Will error if the index is out of bounds.
+    pub fn output(&self, ix: usize) -> ArgumentInfo {
+        self.argument(ix, ArgType::Output)
+    }
+
+    /// Gets the overridable initializer with the given index. Will error if the index is out of bounds.
+    pub fn overridable_initializer(&self, ix: usize) -> ArgumentInfo {
+        self.argument(ix, ArgType::Initialiser)
+    }
+
+    /// Gets an iterator over the inputs of this session.
+    pub fn inputs(&self) -> Arguments {
+        self.arguments(ArgType::Input)
+    }
+
+    /// Gets an iterator over the outputs of this session.
+    pub fn outputs(&self) -> Arguments {
+        self.arguments(ArgType::Output)
+    }
+
+    /// Gets an iterator over the overridable initializers of this session.
+    pub fn overridable_initializers(&self) -> Arguments {
+        self.arguments(ArgType::Initialiser)
+    }
 
     pub fn run_mut(
         &self,
