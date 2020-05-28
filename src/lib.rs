@@ -616,8 +616,7 @@ mod tests {
         let ro = RunOptions::new();
 
         let input_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-        let input_shape = vec![3, 2];
-        let input_tensor = Tensor::new(input_shape, input_data)?;
+        let input_tensor = Tensor::new(&[3,2], input_data)?;
 
         // immutable version
         let output = session.run_raw(&ro, &[&in_name], &[input_tensor.value()], &[&out_name])?;
@@ -631,7 +630,7 @@ mod tests {
         );
 
         // mutable version
-        let mut output_tensor = Tensor::<f32>::init(vec![3, 1], 0.0)?;
+        let mut output_tensor = Tensor::<f32>::init(&[3, 1], 0.0)?;
 
         run!(session, &ro, "X": &input_tensor, "Y": &mut output_tensor)?;
 

@@ -221,7 +221,8 @@ ort_data_type!(Bool, bool);
 
 impl<T: OrtType> Tensor<T> {
     /// Create a new tensor with the given shape and data.
-    pub fn new(shape: Vec<i64>, mut vec: Vec<T>) -> Result<Tensor<T>> {
+    pub fn new(shape: &[usize], mut vec: Vec<T>) -> Result<Tensor<T>> {
+        let shape: Vec<i64> = shape.iter().map(|&x| x as i64).collect();
         let raw = call!(@unsafe @ptr
             CreateTensorWithDataAsOrtValue,
             CPU_ARENA.raw,
@@ -238,12 +239,12 @@ impl<T: OrtType> Tensor<T> {
         })
     }
 
-    pub fn init(shape: Vec<i64>, value: T) -> Result<Tensor<T>>
+    pub fn init(shape: &[usize], value: T) -> Result<Tensor<T>>
     where
         T: Copy,
     {
-        let len = shape.iter().product::<i64>();
-        Self::new(shape, vec![value; len as usize])
+        let len = shape.iter().product::<usize>();
+        Self::new(shape, vec![value; len])
     }
 
     pub fn dims(&self) -> &[i64] {
