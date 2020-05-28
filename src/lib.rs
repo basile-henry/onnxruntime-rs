@@ -18,7 +18,7 @@ pub use allocator::Allocator;
 
 // note that this be come after the macro definitions (in api)
 mod value;
-pub use value::{OrtType, Tensor, TensorInfo, Val};
+pub use value::{OrtType, Tensor, TensorInfo, TensorView, TensorViewMut, Val};
 
 macro_rules! ort_type {
     ($t:ident, $r:ident) => {
@@ -616,7 +616,7 @@ mod tests {
         let ro = RunOptions::new();
 
         let input_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-        let input_tensor = Tensor::new(&[3,2], input_data)?;
+        let input_tensor = Tensor::new(&[3, 2], input_data)?;
 
         // immutable version
         let output = session.run_raw(&ro, &[&in_name], &[input_tensor.value()], &[&out_name])?;
