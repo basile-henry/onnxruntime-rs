@@ -12,3 +12,6 @@ lazy_static = "1.4"
 [build-dependencies]
 bindgen = "0.53.2"
 heck = "0.3"
+
+[dev-dependencies]
+structopt = "0.3.14"

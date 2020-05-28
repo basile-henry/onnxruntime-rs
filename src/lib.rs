@@ -1,7 +1,7 @@
+use std::cell::RefCell;
 use std::ffi::{self, CStr, CString};
 use std::os::raw::c_char;
 use std::ptr;
-use std::cell::RefCell;
 
 pub mod sys;
 // Re-export enums

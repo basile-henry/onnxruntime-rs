@@ -1,3 +1,4 @@
+use std::fmt;
 use std::ffi::c_void;
 use std::ops::{Deref, DerefMut};
 
@@ -149,18 +150,15 @@ impl TensorInfo {
             symbolics.len() as u64
         );
         fixeds.into_iter().zip(symbolics).map(|(fixed, ptr)| {
-            if ptr.is_null() {
-                assert!(fixed >= 0);
+            if fixed >= 0 {
                 SymbolicDim::Fixed(fixed as usize)
             } else {
-                assert!(fixed == -1);
                 SymbolicDim::Symbolic(unsafe { CStr::from_ptr(ptr) })
             }
         })
     }
 }
 
-#[derive(Debug)]
 pub enum SymbolicDim<T> {
     Symbolic(T),
     Fixed(usize),
@@ -172,6 +170,16 @@ impl<T> SymbolicDim<T> {
         match self {
             Symbolic(a) => Symbolic(f(a)),
             Fixed(u) => Fixed(u),
+        }
+    }
+}
+
+
+impl<T: fmt::Debug> fmt::Debug for SymbolicDim<T> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SymbolicDim::Symbolic(t) => write!(fmt, "{:?}", t),
+            SymbolicDim::Fixed(u) => write!(fmt, "{}", u),
         }
     }
 }
