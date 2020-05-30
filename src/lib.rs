@@ -90,19 +90,17 @@ impl From<ffi::NulError> for Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl Status {
-    fn new(raw: *mut sys::Status) -> Option<Status> {
+    pub unsafe fn from_raw(raw: *mut sys::Status) -> Option<Status> {
         if raw.is_null() {
             return None;
         }
 
-        let error_code = call!(@unsafe @raw GetErrorCode, raw);
-        let error_msg = unsafe {
-            CStr::from_ptr(call!(@raw GetErrorMessage, raw))
-                .to_string_lossy()
-                .into_owned()
-        };
+        let error_code = call!(@raw GetErrorCode, raw);
+        let error_msg = CStr::from_ptr(call!(@raw GetErrorMessage, raw))
+            .to_string_lossy()
+            .into_owned();
 
-        call!(@unsafe @raw ReleaseStatus, raw);
+        call!(@raw ReleaseStatus, raw);
 
         Some(Status {
             error_code,

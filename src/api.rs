@@ -16,7 +16,7 @@ macro_rules! call {
     // the checked call that returns Ok(res) on success
     ($name:ident, $($arg:expr),* => $res:expr) => {{
         let status = call!(@raw $name, $($arg),*);
-        match crate::Status::new(status) {
+        match crate::Status::from_raw(status) {
             Some(status) => std::result::Result::Err(crate::Error::OrtError(status)),
             None => std::result::Result::Ok($res),
         }
