@@ -10,6 +10,9 @@ pub struct Val {
     raw: sys::Value,
 }
 
+unsafe impl Send for Val {}
+unsafe impl Sync for Val {}
+
 impl Deref for Value {
     type Target = Val;
     fn deref(&self) -> &Val {
@@ -41,6 +44,9 @@ impl Val {
         TensorTypeAndShapeInfo { raw }
     }
 }
+
+unsafe impl Send for Value {}
+unsafe impl Sync for Value {}
 
 impl Value {
     /// Create a tensor from an allocator.

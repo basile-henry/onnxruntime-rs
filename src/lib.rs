@@ -109,6 +109,9 @@ impl Status {
     }
 }
 
+unsafe impl Send for Env {}
+unsafe impl Sync for Env {}
+
 impl Env {
     pub fn new(logging_level: LoggingLevel, log_identifier: &str) -> Result<Self> {
         let log_identifier = CString::new(log_identifier)?;
@@ -311,6 +314,9 @@ impl<'a> ArgumentInfo<'a> {
     }
 }
 
+unsafe impl Send for Session {}
+unsafe impl Sync for Session {}
+
 impl Session {
     pub fn new(env: &Env, model_path: &str, options: &SessionOptions) -> Result<Self> {
         let model_path = CString::new(model_path)?;
@@ -443,6 +449,9 @@ fn cstr_ptrs(slice: &[&CStr]) -> Vec<*const c_char> {
 pub struct OrtString {
     raw: *const c_char,
 }
+
+unsafe impl Send for OrtString {}
+unsafe impl Sync for OrtString {}
 
 impl std::ops::Deref for OrtString {
     type Target = CStr;
@@ -587,9 +596,6 @@ mod tests {
     pub(crate) struct TestEnv {
         pub(crate) test_env: Env,
     }
-
-    unsafe impl Send for TestEnv {}
-    unsafe impl Sync for TestEnv {}
 
     lazy_static::lazy_static! {
         /// There should only be one ORT environment existing at any given time.
