@@ -324,6 +324,11 @@ impl Session {
         Ok(Session { raw })
     }
 
+    pub fn metadata(&self) -> ModelMetadata {
+        let raw = call!(@unsafe @ptr @expect SessionGetModelMetadata, self.raw);
+        ModelMetadata { raw }
+    }
+
     fn argument(&self, ix: usize, arg_type: ArgType) -> ArgumentInfo {
         ArgumentInfo {
             session: &self,
@@ -437,6 +442,48 @@ impl Session {
                     .collect(),
             )
         }
+    }
+}
+
+impl ModelMetadata {
+    pub fn producer_name(&self) -> OrtString {
+        let alloc = Allocator::default();
+        let raw =
+            call!(@unsafe @ptr @expect ModelMetadataGetProducerName, self.raw, alloc.as_ptr());
+        OrtString { raw }
+    }
+    pub fn graph_name(&self) -> OrtString {
+        let alloc = Allocator::default();
+        let raw = call!(@unsafe @ptr @expect ModelMetadataGetGraphName, self.raw, alloc.as_ptr());
+        OrtString { raw }
+    }
+    pub fn domain(&self) -> OrtString {
+        let alloc = Allocator::default();
+        let raw = call!(@unsafe @ptr @expect ModelMetadataGetDomain, self.raw, alloc.as_ptr());
+        OrtString { raw }
+    }
+    pub fn description(&self) -> OrtString {
+        let alloc = Allocator::default();
+        let raw = call!(@unsafe @ptr @expect ModelMetadataGetDescription, self.raw, alloc.as_ptr());
+        OrtString { raw }
+    }
+    pub fn lookup_custom(&self, key: &str) -> Option<OrtString> {
+        let alloc = Allocator::default();
+        let key = CString::new(key).expect("ModelMetadata::lookup");
+        let raw = call!(@unsafe @ptr @expect
+            ModelMetadataLookupCustomMetadataMap,
+            self.raw,
+            alloc.as_ptr(),
+            key.as_ptr()
+        );
+        if raw.is_null() {
+            None
+        } else {
+            Some(OrtString { raw })
+        }
+    }
+    pub fn version(&self) -> i64 {
+        call!(@unsafe @int @expect ModelMetadataGetVersion, self.raw)
     }
 }
 
