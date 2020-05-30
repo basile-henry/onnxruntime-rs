@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::ffi::{self, CStr, CString};
+use std::fmt;
 use std::os::raw::c_char;
 use std::ptr;
 
@@ -18,7 +19,7 @@ pub use allocator::Allocator;
 
 // note that this be come after the macro definitions (in api)
 mod value;
-pub use value::{OrtType, Tensor, TensorInfo, TensorView, TensorViewMut, Val};
+pub use value::{OrtType, SymbolicDim, Tensor, TensorInfo, TensorView, TensorViewMut, Val};
 
 macro_rules! ort_type {
     ($t:ident, $r:ident) => {
@@ -505,6 +506,12 @@ impl std::ops::Deref for OrtString {
 
     fn deref(&self) -> &CStr {
         unsafe { CStr::from_ptr(self.raw) }
+    }
+}
+
+impl fmt::Display for OrtString {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "{}", self.to_string_lossy())
     }
 }
 
