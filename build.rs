@@ -8,14 +8,20 @@ fn main() {
     println!("cargo:rerun-if-env-changed=ONNXRUNTIME_INCLUDE_DIR");
 
     match std::env::var("ONNXRUNTIME_LIB_DIR") {
-        Ok(path) => println!("cargo:rustc-link-search={}", path),
+        Ok(dirs) => {
+            for dir in dirs.split(":") {
+                println!("cargo:rustc-link-search={}", dir);
+            }
+        }
         Err(_) => (),
     };
 
-    let mut clang_args = String::new();
+    let mut clang_args = Vec::new();
     match std::env::var("ONNXRUNTIME_INCLUDE_DIR") {
-        Ok(path) => {
-            clang_args = format!("-I{}", path);
+        Ok(dirs) => {
+            for dir in dirs.split(":") {
+                clang_args.push(format!("-I{}", dir));
+            }
         }
         Err(_) => (),
     };
@@ -24,7 +30,7 @@ fn main() {
 
     let bindings = bindgen::Builder::default()
         .header("cbits/ort.h")
-        .clang_arg(clang_args)
+        .clang_args(clang_args)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         .whitelist_function("OrtGetApiBase")
         .whitelist_var("ORT_.*")
