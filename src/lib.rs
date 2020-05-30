@@ -398,7 +398,7 @@ mod tests {
 
         let so = SessionOptions::new()?;
 
-        let model_path = "../onnxruntime/test/testdata/matmul_1.onnx";
+        let model_path = "testdata/matmul_1.onnx";
         let session = Session::new(&env, model_path, &so)?;
         let in_name = session.input_name(0)?;
         let out_name = session.output_name(0)?;
