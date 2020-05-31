@@ -1,24 +1,14 @@
-{ nixpkgs ? import ./nix/nixpkgs.nix
-}:
+{ nixpkgs ? import ./nix/nixpkgs.nix }:
 
-with nixpkgs;
+{
+  # Just onnxruntime-rs with no onnxruntime dependency
+  # Tests are not run
+  onnxruntime-rs = import ./onnxruntime-rs.nix {
+    inherit nixpkgs;
+  };
 
-let filterSource = with lib; builtins.filterSource (path: type:
-      type != "unknown" &&
-      baseNameOf path != "target" &&
-      baseNameOf path != "result" &&
-      baseNameOf path != ".git" &&
-      (baseNameOf path == "build" -> type != "directory") &&
-      (baseNameOf path == "nix" -> type != "directory")
-    );
-in
-naersk.buildPackage {
-  root = filterSource ./.;
-
-  LIBCLANG_PATH = "${llvmPackages.libclang}/lib";
-  ONNXRUNTIME_LIB_DIR = "${onnxruntime}/lib";
-  ONNXRUNTIME_INCLUDE_DIR = "${onnxruntime.dev}/include/onnxruntime/core/session:${musl.dev}/include";
-
-  doDoc = true;
-  doCheck = true;
+  onnxruntime-rs-tested = import ./onnxruntime-rs.nix {
+    inherit nixpkgs;
+    inherit (nixpkgs) onnxruntime;
+  };
 }
