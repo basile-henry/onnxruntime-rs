@@ -14,3 +14,8 @@ export ONNXRUNTIME_INCLUDE_DIR=$PWD/include/onnxruntime/core/session/
 export LD_LIBRARY_PATH=$ONNXRUNTIME_LIB_DIR:$LD_LIBRARY_PATH
 ```
 
+## License
+
+[MIT License](./LICENSE)
+
+Copyright 2020 Basile Henry, Chris Chalmers
