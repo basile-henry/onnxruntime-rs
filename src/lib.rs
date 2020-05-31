@@ -564,12 +564,6 @@ impl OrtString {
     }
 }
 
-impl OrtString {
-    pub fn as_str(&self) -> &str {
-        self.to_str().expect("OrtString::as_str")
-    }
-}
-
 unsafe impl Send for OrtString {}
 unsafe impl Sync for OrtString {}
 
