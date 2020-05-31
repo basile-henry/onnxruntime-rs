@@ -388,6 +388,43 @@ impl Session {
         self.arguments(ArgType::Initialiser)
     }
 
+    pub fn run<'a, Inputs, Outputs>(
+        &self,
+        ro: &RunOptions,
+        inputs: Inputs,
+        outputs: Outputs,
+    ) -> Result<()>
+    where
+        Inputs: IntoIterator<Item = (&'a str, &'a Val)>,
+        Outputs: IntoIterator<Item = (&'a str, &'a mut Val)>,
+    {
+        let mut input_names: Vec<CString> = vec![];
+        let mut input_vals: Vec<&Val> = vec![];
+
+        for (name, val) in inputs {
+            input_names.push(CString::new(name).expect("name with null"));
+            input_vals.push(val);
+        }
+        let input_names: Vec<&CStr> = input_names.iter().map(|name| name.as_ref()).collect();
+
+        let mut output_names: Vec<CString> = vec![];
+        let mut output_vals: Vec<&mut Val> = vec![];
+
+        for (name, val) in outputs {
+            output_names.push(CString::new(name).expect("name with null"));
+            output_vals.push(val);
+        }
+        let output_names: Vec<&CStr> = output_names.iter().map(|name| name.as_ref()).collect();
+
+        self.run_mut(
+            ro,
+            &input_names,
+            &input_vals,
+            &output_names,
+            &mut output_vals,
+        )
+    }
+
     pub fn run_mut(
         &self,
         options: &RunOptions,
