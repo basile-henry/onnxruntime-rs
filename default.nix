@@ -19,7 +19,7 @@ naersk.buildPackage {
   root = filterSource ./.;
 
   LIBCLANG_PATH = "${llvmPackages.libclang}/lib";
-  buildInputs = [ onnxruntime.dev  ];
+  buildInputs = [ onnxruntime.dev ];
   nativeBuildInputs = [ pkg-config clang ];
 
   doDoc = true;
