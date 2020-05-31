@@ -1,17 +1,24 @@
 use std::time::{Duration, Instant};
 
 use onnxruntime::*;
-use structopt::StructOpt;
+use structopt::{clap, StructOpt};
 
+#[structopt(
+    name = "run",
+    about = "Run a benchmark on an onnx model. Each worker runs the model `runs` times in a loop.",
+    setting = clap::AppSettings::ColoredHelp
+)]
 #[derive(StructOpt)]
 struct Opt {
-    /// The path to the gru onnx file
+    /// The path to the onnx files to benchmark
     onnx: Vec<String>,
 
-    #[structopt(long, default_value = "")]
-    dims: String,
+    /// A comma separated list of symbolic_dimension=value. If a symbolic dimension is not
+    /// specified, 1 will be used.
+    #[structopt(long)]
+    dims: Option<String>,
 
-    /// The number of worker threads to spawn, each thread will run the graph in a loop
+    /// The number of worker threads to spawn
     #[structopt(long, default_value = "1")]
     workers: usize,
 
@@ -96,7 +103,11 @@ fn main() -> Result<()> {
 
     let so = SessionOptions::new()?;
 
-    let map = key_val_parse(&opt.dims);
+    let map = if let Some(dims) = &opt.dims {
+        key_val_parse(dims)
+    } else {
+        HashMap::new()
+    };
 
     for path in &opt.onnx {
         println!("model {:?}", path);
