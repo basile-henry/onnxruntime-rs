@@ -1,16 +1,23 @@
+use std::time::{Duration, Instant};
+
 use onnxruntime::*;
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
 struct Opt {
     /// The path to the gru onnx file
-    // #[structopt(long)]
     onnx: Vec<String>,
 
     #[structopt(long, default_value = "")]
     dims: String,
-    // #[structopt(long, default_value="1")]
-    // workers: usize,
+
+    /// The number of worker threads to spawn, each thread will run the graph in a loop
+    #[structopt(long, default_value = "1")]
+    workers: usize,
+
+    /// The number of runs each worker will
+    #[structopt(long, default_value = "1")]
+    runs: usize,
 }
 
 use std::collections::HashMap;
@@ -109,8 +116,6 @@ fn main() -> Result<()> {
 
         let mut input_names: Vec<CString> = vec![];
         let mut input_tensors: Vec<Box<dyn AsRef<Val>>> = vec![];
-        let mut output_names: Vec<CString> = vec![];
-        let mut output_tensors: Vec<Box<dyn AsMut<Val>>> = vec![];
 
         for (i, input) in session.inputs().enumerate() {
             if let Some(tensor_info) = input.tensor_info() {
@@ -120,46 +125,62 @@ fn main() -> Result<()> {
                 println!("input {}: {:?} {:?}", i, &*input.name(), input.onnx_type());
             }
         }
-        for (i, output) in session.outputs().enumerate() {
-            if let Some(tensor_info) = output.tensor_info() {
-                output_names.push(output.name().to_owned());
-                output_tensors.push(tensor_with_size_mut(&tensor_info, &map));
-            } else {
-                println!(
-                    "output {}: {:?} {:?}",
-                    i,
-                    &*output.name(),
-                    output.onnx_type()
-                );
-            }
-        }
-
-        let so = RunOptions::new();
+        let output_names: Vec<CString> = session
+            .outputs()
+            .map(|output| output.name().to_owned())
+            .collect();
 
         let in_names: Vec<&CStr> = input_names.iter().map(|x| x.as_c_str()).collect();
         let in_vals: Vec<&Val> = input_tensors.iter().map(|x| x.as_ref().as_ref()).collect();
         let out_names: Vec<&CStr> = output_names.iter().map(|x| x.as_c_str()).collect();
-        let mut out_vals: Vec<&mut Val> = output_tensors
-            .iter_mut()
-            .map(|x| x.as_mut().as_mut())
-            .collect();
 
-        session
-            .run_mut(&so, &in_names, &in_vals[..], &out_names, &mut out_vals[..])
-            .expect("run");
+        crossbeam::scope(|s| {
+            let mut workers = vec![];
+            for i in 0..opt.workers {
+                let i = std::sync::Arc::new(i);
+                workers.push(s.spawn(|_| {
+                    let i = i;
+                    let ro = RunOptions::new();
+                    // allocate output vectors
+                    let mut output_tensors: Vec<Box<dyn AsMut<Val>>> = vec![];
+                    for (i, output) in session.outputs().enumerate() {
+                        if let Some(tensor_info) = output.tensor_info() {
+                            output_tensors.push(tensor_with_size_mut(&tensor_info, &map));
+                        } else {
+                            println!(
+                                "output {}: {:?} {:?}",
+                                i,
+                                &*output.name(),
+                                output.onnx_type()
+                            );
+                        }
+                    }
+                    let mut out_vals: Vec<&mut Val> = output_tensors
+                        .iter_mut()
+                        .map(|x| x.as_mut().as_mut())
+                        .collect();
 
-        // pub fn run_mut(
-        //     &self,
-        //     options: &RunOptions,
-        //     input_names: &[&CStr],
-        //     inputs: &[&Val],
-        //     output_names: &[&CStr],
-        //     outputs: &mut [&mut Val],
+                    // warmup run
+                    session
+                        .run_mut(&ro, &in_names, &in_vals[..], &out_names, &mut out_vals[..])
+                        .expect("run");
 
-        for (i, output) in session.overridable_initializers().enumerate() {
-            println!("init {}: {:?}", i, &*output.name())
-        }
-        println!();
+                    let mut times = vec![];
+                    for _ in 0..opt.runs {
+                        let before = Instant::now();
+                        session
+                            .run_mut(&ro, &in_names, &in_vals[..], &out_names, &mut out_vals[..])
+                            .expect("run");
+                        times.push(before.elapsed());
+                    }
+                    let total: Duration = times.iter().sum();
+                    let avg = total / (times.len() as u32);
+                    eprintln!("worker {} avg time: {:.2} ms", i, avg.as_secs_f64() * 1e3);
+                }));
+            }
+            workers.into_iter().for_each(|j| j.join().unwrap());
+        })
+        .unwrap();
     }
 
     Ok(())
