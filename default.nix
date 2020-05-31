@@ -16,8 +16,7 @@ naersk.buildPackage {
   root = filterSource ./.;
 
   LIBCLANG_PATH = "${llvmPackages.libclang}/lib";
-  ONNXRUNTIME_LIB_DIR = "${onnxruntime}/lib";
-  ONNXRUNTIME_INCLUDE_DIR = "${onnxruntime.dev}/include/onnxruntime/core/session:${musl.dev}/include";
+  buildInputs = [ onnxruntime.dev pkg-config clang ];
 
   doDoc = true;
   doCheck = true;
