@@ -4,10 +4,11 @@ version = "0.1.0"
 authors = ["Basile Henry <bjm.henry@gmail.com>", "Chris Chalmers <c.chalmers@me.com>"]
 edition = "2018"
 license = "MIT"
-license-file = "LICENSE"
 
 [dependencies]
 lazy_static = "1.4"
+structopt = "0.3.14"
+crossbeam = "0.7.3"
 
 [build-dependencies]
 bindgen = "0.53.2"

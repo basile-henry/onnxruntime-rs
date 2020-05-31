@@ -1,5 +1,4 @@
 use std::ffi::c_void;
-use std::ptr;
 
 use crate::sys;
 
@@ -9,11 +8,7 @@ pub struct Allocator {
 
 impl Default for Allocator {
     fn default() -> Self {
-        let mut raw = ptr::null_mut();
-        unsafe {
-            checked_call!(GetAllocatorWithDefaultOptions, &mut raw)
-                .expect("GetAllocatorWithDefaultOptions");
-        }
+        let raw = call!(@unsafe @ptr @expect GetAllocatorWithDefaultOptions);
         Allocator { raw }
     }
 }
@@ -24,6 +19,6 @@ impl Allocator {
     }
 
     pub unsafe fn free(&self, ptr: *mut c_void) {
-        checked_call!(AllocatorFree, self.raw, ptr).expect("AllocatorFree");
+        call!(@expect AllocatorFree, self.raw, ptr);
     }
 }
