@@ -8,6 +8,9 @@ let filterSource = with lib; builtins.filterSource (path: type:
       baseNameOf path != "target" &&
       baseNameOf path != "result" &&
       baseNameOf path != ".git" &&
+      baseNameOf path != ".gitignore" &&
+      baseNameOf path != ".github" &&
+      !(hasSuffix ".nix" path) &&
       (baseNameOf path == "build" -> type != "directory") &&
       (baseNameOf path == "nix" -> type != "directory")
     );
