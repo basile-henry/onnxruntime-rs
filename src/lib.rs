@@ -7,12 +7,15 @@ use std::ptr;
 pub mod sys;
 // Re-export enums
 pub use sys::{
-    AllocatorType, ErrorCode, ExecutionMode, GraphOptimizationLevel, LoggingLevel, MemType,
-    OnnxTensorElementDataType, OnnxType,
+    AllocatorType, CustomOp, ErrorCode, ExecutionMode, GraphOptimizationLevel, KernelContext,
+    KernelInfo, LoggingLevel, MemType, OnnxTensorElementDataType, OnnxType,
 };
 
 #[macro_use]
 mod api;
+
+mod custom_op;
+pub use custom_op::*;
 
 mod allocator;
 pub use allocator::Allocator;
@@ -177,6 +180,8 @@ impl SessionOptions {
         { SetSessionGraphOptimizationLevel };
     fn set_intra_op_num_threads(intra_op_num_threads: i32) { SetIntraOpNumThreads };
     fn set_inter_op_num_threads(intra_op_num_threads: i32) { SetInterOpNumThreads };
+    /// XXX not yet safe becuase of lifetimes
+    fn add_custom_op_domain(custom_op_domain: &mut CustomOpDomain | .raw()) { AddCustomOpDomain };
     }
 }
 
