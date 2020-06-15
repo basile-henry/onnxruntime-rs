@@ -1,4 +1,4 @@
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::time::{Duration, Instant};
 
 use onnxruntime::*;
@@ -122,24 +122,24 @@ fn main() -> Result<()> {
         eprintln!("domain: {}", metadata.domain());
         eprintln!("description: {}", metadata.description());
 
-        let mut input_names: Vec<CString> = vec![];
+        let mut input_names: Vec<OrtString> = vec![];
         let mut input_tensors: Vec<Box<dyn AsRef<Val>>> = vec![];
 
         for (i, input) in session.inputs().enumerate() {
             if let Some(tensor_info) = input.tensor_info() {
-                input_names.push(input.name().to_owned());
+                input_names.push(input.name());
                 input_tensors.push(tensor_with_size(&tensor_info, &mut map));
             } else {
                 println!("input {}: {:?} {:?}", i, &*input.name(), input.onnx_type());
             }
         }
 
-        let mut output_names: Vec<CString> = vec![];
+        let mut output_names: Vec<OrtString> = vec![];
         let mut output_sizes: Vec<(OnnxTensorElementDataType, Vec<usize>)> = vec![];
 
         for (i, output) in session.outputs().enumerate() {
             if let Some(tensor_info) = output.tensor_info() {
-                output_names.push(output.name().to_owned());
+                output_names.push(output.name());
                 output_sizes.push(tensor_size(&tensor_info, &mut map));
             } else {
                 println!(
