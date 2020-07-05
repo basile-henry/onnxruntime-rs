@@ -20,7 +20,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: -- --examples --tests --bins
+          args: --examples --tests --bins
 
   test:
     name: Test Suite
