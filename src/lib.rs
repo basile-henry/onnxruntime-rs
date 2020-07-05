@@ -334,7 +334,7 @@ impl Session {
         ArgumentInfo {
             session: &self,
             ix,
-            arg_type: arg_type,
+            arg_type,
             info: RefCell::new(None),
         }
     }
