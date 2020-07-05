@@ -2,6 +2,15 @@
 
 set -xe
 
+##################################################
+# Install llvm-config on Ubuntu
+
+sudo apt-get update
+sudo apt-get install -y llvm-dev
+
+##################################################
+# Install onnxruntime
+
 ONNXRUNTIME_VERSION=${ONNXRUNTIME_VERSION:-1.2.0}
 
 ONNXRUNTIME_RELEASE="onnxruntime-linux-x64-${ONNXRUNTIME_VERSION}"
