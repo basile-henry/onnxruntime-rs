@@ -37,7 +37,7 @@ jobs:
           override: true
 
       - name: Install onnxruntime dependency
-        uses: ./.github/actions/setup-env.sh
+        run: ./.github/scripts/setup-env.sh
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
