@@ -1,5 +1,10 @@
 name: "Cargo CI"
-on: [pull_request, push]
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  release:
 
 jobs:
   check:
