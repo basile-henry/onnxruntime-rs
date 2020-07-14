@@ -1,9 +1,14 @@
-name: "Test"
+name: "Nix CI"
 on:
   pull_request:
   push:
+    branches:
+      - master
+  release:
+
 jobs:
   tests:
+    name: Build
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
